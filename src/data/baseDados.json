@@ -1,0 +1,157 @@
+[
+  {
+    "label": "SIF da Filial",
+    "value": "##FILIAL_SIF##",
+    "imagem": "FILIAL_SIF.png"
+  },
+  {
+    "label": "Descrição Etiqueta PORTUGUÊS",
+    "value": "##NOME_PRODUTO_LINGUA_1##",
+    "imagem": "NOME_PRODUTO_LINGUA_1.png"
+  },
+  {
+    "label": "Descrição Etiqueta INGLÊS",
+    "value": "##NOME_PRODUTO_LINGUA_2##",
+    "imagem": "NOME_PRODUTO_LINGUA_2.png"
+  },
+  {
+    "label": "Temperatura",
+    "value": "##NOME_PRODUTO_LINGUA_3##",
+    "imagem": "NOME_PRODUTO_LINGUA_3.png"
+  },
+  {
+    "label": "Idioma 4",
+    "value": "##NOME_PRODUTO_LINGUA_4##",
+    "imagem": "NOME_PRODUTO_LINGUA_4.png"
+  },
+  {
+    "label": "Idioma 5",
+    "value": "##NOME_PRODUTO_LINGUA_5##",
+    "imagem": "NOME_PRODUTO_LINGUA_5.png"
+  },
+  {
+    "label": "CÓDIGO SISTEMA CHIP 2000",
+    "value": "##NOME_PRODUTO_LINGUA_6##",
+    "imagem": "NOME_PRODUTO_LINGUA_6.png"
+  },
+  {
+    "label": "Idioma 7",
+    "value": "##NOME_PRODUTO_LINGUA_7##",
+    "imagem": "NOME_PRODUTO_LINGUA_7.png"
+  },
+  {
+    "label": "Ingredientes Espetinho I",
+    "value": "##NOME_PRODUTO_LINGUA_8##",
+    "imagem": "NOME_PRODUTO_LINGUA_8.png"
+  },
+  {
+    "label": "Classificação Local Estoque",
+    "value": "##NOME_PRODUTO_LINGUA_9##",
+    "imagem": "NOME_PRODUTO_LINGUA_9.png"
+  },
+  {
+    "label": "Ingredientes Espetinho II",
+    "value": "##NOME_PRODUTO_LINGUA_10##",
+    "imagem": "NOME_PRODUTO_LINGUA_10.png"
+  },
+  {
+    "label": "Tara Externa",
+    "value": "##TARA_EXTERNA##",
+    "imagem": "TARA_EXTERNA.png"
+  },
+  {
+    "label": "Tara Interna",
+    "value": "##TARA_INTERNA##",
+    "imagem": "TARA_INTERNA.png"
+  },
+  {
+    "label": "Peso Bruto",
+    "value": "##PESO_BRUTO##",
+    "imagem": "PESO_BRUTO.png"
+  },
+  {
+    "label": "Peso Líquido",
+    "value": "##PESO_LIQUIDO##",
+    "imagem": "PESO_LIQUIDO.png"
+  },
+  {
+    "label": "Quantidade de Unidades/Sacos",
+    "value": "##QUANTIDADE##",
+    "imagem": "QUANTIDADE.png"
+  },
+  {
+    "label": "Código do Produto",
+    "value": "##CODIGO_PRODUTO##",
+    "imagem": "CODIGO_PRODUTO.png"
+  },
+  {
+    "label": "SIF DIPOA",
+    "value": "##SIF_DIPOA##",
+    "imagem": "SIF_DIPOA.png"
+  },
+  {
+    "label": "Data de Validade",
+    "value": "##DATA_VALIDADE##",
+    "imagem": "DATA_VALIDADE.png"
+  },
+  {
+    "label": "Data de Produção",
+    "value": "##DATA_PRODUCAO##",
+    "imagem": "DATA_PRODUCAO.png"
+  },
+  {
+    "label": "Rastreabilidade",
+    "value": "##RASTREABILIDADE##",
+    "imagem": "RASTREABILIDADE.png"
+  },
+  {
+    "label": "Data de Embalagem",
+    "value": "##DATA_EMBALAGEM##",
+    "imagem": "DATA_EMBALAGEM.png"
+  },
+  {
+    "label": "Data de Congelamento",
+    "value": "##DATA_CONGELAMENTO##",
+    "imagem": "DATA_CONGELAMENTO.png"
+  },
+  {
+    "label": "Tara Total (Interna + Externa)",
+    "value": "##TARA_TOTAL##",
+    "imagem": "TARA_TOTAL.png"
+  },
+  {
+    "label": "Lote",
+    "value": "##DATA_PRODUCAO##",
+    "imagem": "LOTE.png"
+  },
+  {
+    "label": "Código Mercosul",
+    "value": "##CODIGO_MERCOSUL##",
+    "imagem": "CODIGO_MERCOSUL.png"
+  },
+  {
+    "label": "Código União Europeia",
+    "value": "##CODIGO_UNIAO_EUROPEIA##",
+    "imagem": "CODIGO_UNIAO_EUROPEIA.png"
+  },
+  {
+    "label": "NALADISH",
+    "value": "##NALADISH##",
+    "imagem": "NALADISH.png"
+  },
+  {
+    "label": "Código do Funcionário",
+    "value": "##CODIGO_FUNCIONARIO##",
+    "imagem": "CODIGO_FUNCIONARIO.png"
+  },
+  {
+    "label": "Funcionário Hora",
+    "value": "##FUNCIONARIO_HORA##",
+    "imagem": "FUNCIONARIO_HORA.png"
+  },
+  {
+    "label": "EAN",
+    "value": "##EAN##",
+    "imagem": "EAN.png"
+  }
+]
