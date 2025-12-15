@@ -53,16 +53,26 @@ const extractVariables = (content: string): Variable[] => {
     });
   });
 
-  // Ordena por posição Y, depois X (top-to-bottom, left-to-right)
-  variables.sort((a, b) => {
-    if (a.y !== b.y) return a.y - b.y;
-    return a.x - b.x;
-  });
+  // Separa por tipo e ordena cada grupo
+  const barcodes = variables.filter(v => v.type === 'barcode')
+    .sort((a, b) => {
+      if (a.y !== b.y) return a.y - b.y;
+      return a.x - b.x;
+    });
+
+  const images = variables.filter(v => v.type === 'image')
+    .sort((a, b) => {
+      if (a.y !== b.y) return a.y - b.y;
+      return a.x - b.x;
+    });
+
+  // Códigos de barras primeiro, depois imagens
+  const sortedVariables = [...barcodes, ...images];
 
   // Reindexar após ordenação
-  variables.forEach((v, i) => v.index = i);
+  sortedVariables.forEach((v, i) => v.index = i);
 
-  return variables;
+  return sortedVariables;
 };
 
 const reorderPrnContent = (content: string): string => {
@@ -330,6 +340,9 @@ export default function Preview() {
     );
     cleaned = cleaned.replace(/\^XA\s*\^ID.*?\^FS\s*\^XZ\s*/gs, "");
     cleaned = cleaned.replace(/~DG.*?\^XA/gs, "^XA");
+
+    // Muda o terceiro parâmetro de N para Y nos códigos de barras ^BE
+    cleaned = cleaned.replace(/(\^BE[A-Z],\d+,)N(,[A-Z])/g, '$1Y$2');
 
     return cleaned;
   };
