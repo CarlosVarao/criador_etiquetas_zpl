@@ -244,22 +244,26 @@ export default function Preview() {
 
     let result = originalContent;
 
-    // Substitui imagens (^XG)
-    const imageVars = variables.filter(v => v.type === 'image');
-    let imgIndex = 0;
-    result = result.replace(/\^XG(.*?)(?=,)/gs, (match) => {
-      const v = imageVars[imgIndex++];
+    // Cria mapa de variáveis por valor original para matching preciso
+    const imageVarsMap = new Map(
+      variables.filter(v => v.type === 'image').map(v => [v.originalValue, v])
+    );
+
+    const barcodeVarsMap = new Map(
+      variables.filter(v => v.type === 'barcode').map(v => [v.originalValue, v])
+    );
+
+    // Substitui imagens (^XG) usando o valor original como chave
+    result = result.replace(/\^XG(.*?)(?=,)/gs, (match, captured) => {
+      const v = imageVarsMap.get(captured);
       return v && v.value ? `^XG${v.value}` : match;
     });
 
-    // Substitui códigos de barras (^FD...^FS)
-    const barcodeVars = variables.filter(v => v.type === 'barcode');
-    let bcIndex = 0;
-    result = result.replace(/\^FT\d+,\d+\^BE[A-Z],\d+,[A-Z],[A-Z]\^FD.*?\^FS/gs, (match) => {
-      const v = barcodeVars[bcIndex++];
+    // Substitui códigos de barras usando o valor original como chave
+    result = result.replace(/(\^FT\d+,\d+\^BE[A-Z],\d+,[A-Z],[A-Z]\^FD)(.*?)(\^FS)/gs, (match, prefix, fdValue, suffix) => {
+      const v = barcodeVarsMap.get(fdValue);
       if (!v || !v.value) return match;
-      // Reconstrói mantendo os parâmetros originais
-      return match.replace(/\^FD.*?\^FS/, `^FD${v.value}^FS`);
+      return `${prefix}${v.value}${suffix}`;
     });
 
     return result;
