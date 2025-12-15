@@ -173,8 +173,18 @@ const LabelOverlay: React.FC<LabelOverlayProps> = ({
   const scaleX = imageRect.width / (width * dpi);
   const scaleY = imageRect.height / (height * dpi);
 
-  const leftPx = (activeVariable.x - 13) * scaleX;
-  const topPx = (activeVariable.y + 75) * scaleY;
+  // Offsets diferentes para cada tipo
+  let leftPx, topPx;
+
+  if (activeVariable.type === 'barcode') {
+    // Ajuste para código de barras
+    leftPx = (activeVariable.x) * scaleX;
+    topPx = (activeVariable.y - 50) * scaleY;
+  } else {
+    // Ajuste para imagem
+    leftPx = (activeVariable.x - 13) * scaleX;
+    topPx = (activeVariable.y + 75) * scaleY;
+  }
 
   return (
     <div className="absolute z-999 pointer-events-none flex items-center justify-center min-w-5 min-h-5 px-1 py-[3px]
