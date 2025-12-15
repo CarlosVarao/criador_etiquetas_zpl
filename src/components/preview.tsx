@@ -10,22 +10,59 @@ interface Variable {
   index: number;
   x: number;
   y: number;
+  type: 'image' | 'barcode'; // Novo campo para diferenciar tipo
 }
 
-const fullVariableRegex = /(\^FO(\d+),(\d+).*?)(\^XG(.*?)(?=,))/gs;
+// Regex para ^XG (imagens)
+const imageVariableRegex = /(\^FO(\d+),(\d+).*?)(\^XG(.*?)(?=,))/gs;
+
+// Regex para códigos de barras ^FT...^BE...^FD...^FS
+const barcodeVariableRegex = /\^FT(\d+),(\d+)\^BE[A-Z],(\d+),[A-Z],[A-Z]\^FD(.*?)\^FS/gs;
 
 const generateUniqueId = () => Math.random().toString(36).substring(2, 9);
 
 const extractVariables = (content: string): Variable[] => {
-  const matches = Array.from(content.matchAll(fullVariableRegex));
-  return matches.map((match, index) => ({
-    id: generateUniqueId(),
-    x: parseInt(match[2], 10),
-    y: parseInt(match[3], 10),
-    originalValue: match[5] || "",
-    value: match[5] || "",
-    index,
-  }));
+  const variables: Variable[] = [];
+  let globalIndex = 0;
+
+  // Extrai variáveis de imagem (^XG)
+  const imageMatches = Array.from(content.matchAll(imageVariableRegex));
+  imageMatches.forEach((match) => {
+    variables.push({
+      id: generateUniqueId(),
+      x: parseInt(match[2], 10),
+      y: parseInt(match[3], 10),
+      originalValue: match[5] || "",
+      value: match[5] || "",
+      index: globalIndex++,
+      type: 'image',
+    });
+  });
+
+  // Extrai variáveis de código de barras (^FT...^BE...^FD)
+  const barcodeMatches = Array.from(content.matchAll(barcodeVariableRegex));
+  barcodeMatches.forEach((match) => {
+    variables.push({
+      id: generateUniqueId(),
+      x: parseInt(match[1], 10),
+      y: parseInt(match[2], 10),
+      originalValue: match[4] || "",
+      value: match[4] || "",
+      index: globalIndex++,
+      type: 'barcode',
+    });
+  });
+
+  // Ordena por posição Y, depois X (top-to-bottom, left-to-right)
+  variables.sort((a, b) => {
+    if (a.y !== b.y) return a.y - b.y;
+    return a.x - b.x;
+  });
+
+  // Reindexar após ordenação
+  variables.forEach((v, i) => v.index = i);
+
+  return variables;
 };
 
 const reorderPrnContent = (content: string): string => {
@@ -184,12 +221,26 @@ export default function Preview() {
 
   const generateZplWithCurrentValues = useCallback(() => {
     if (!originalContent || variables.length === 0) return "";
-    let i = 0;
-    const vals = variables.map((v) => v.value);
-    return originalContent.replace(/\^XG(.*?)(?=,)/gs, (match) => {
-      const v = vals[i++];
-      return v ? `^XG${v}` : match;
+
+    let result = originalContent;
+
+    // Substitui imagens (^XG)
+    const imageVars = variables.filter(v => v.type === 'image');
+    let imgIndex = 0;
+    result = result.replace(/\^XG(.*?)(?=,)/gs, (match) => {
+      const v = imageVars[imgIndex++];
+      return v && v.value ? `^XG${v.value}` : match;
     });
+
+    // Substitui códigos de barras (^FD...^FS)
+    const barcodeVars = variables.filter(v => v.type === 'barcode');
+    let bcIndex = 0;
+    result = result.replace(/(\^FT\d+,\d+\^BE[A-Z],\d+,[A-Z],[A-Z]\^FD)(.*?)(\^FS)/gs, (match, prefix, oldValue, suffix) => {
+      const v = barcodeVars[bcIndex++];
+      return v && v.value ? `${prefix}${v.value}${suffix}` : match;
+    });
+
+    return result;
   }, [originalContent, variables]);
 
   const renderLabelPreview = useCallback(async () => {
@@ -415,12 +466,14 @@ export default function Preview() {
                           onClick={() => handleFocus(v.id)}
                         >
                           <label className="text-xs font-bold text-yellow-500 flex justify-between">
-                            <span>CAMPO IMG {index + 1}</span>
+                            <span>
+                              {v.type === 'image' ? '🖼️ IMAGEM' : '📊 CÓDIGO DE BARRAS'} {index + 1}
+                            </span>
 
                             <p className="text-[9px] text-gray-500">
                               <span className="mr-1">Posição</span>
                               <span>
-                                (Eixo X: {v.x} | Eixo Y:{v.y})
+                                (X: {v.x} | Y: {v.y})
                               </span>
                             </p>
                           </label>
@@ -428,7 +481,7 @@ export default function Preview() {
                             <input
                               type="text"
                               value={searchVariaveis[v.id] || ""}
-                              placeholder="Insira a variavel"
+                              placeholder={v.type === 'barcode' ? 'Ex: 123456789012' : 'Insira a variável'}
                               onChange={(e) =>
                                 handleVariableChange(v.id, e.target.value)
                               }
