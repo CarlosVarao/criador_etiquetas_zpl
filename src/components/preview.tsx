@@ -245,9 +245,11 @@ export default function Preview() {
     // Substitui códigos de barras (^FD...^FS)
     const barcodeVars = variables.filter(v => v.type === 'barcode');
     let bcIndex = 0;
-    result = result.replace(/(\^FT\d+,\d+\^BE[A-Z],\d+,[A-Z],[A-Z]\^FD)(.*?)(\^FS)/gs, (match, prefix, oldValue, suffix) => {
+    result = result.replace(/\^FT\d+,\d+\^BE[A-Z],\d+,[A-Z],[A-Z]\^FD.*?\^FS/gs, (match) => {
       const v = barcodeVars[bcIndex++];
-      return v && v.value ? `${prefix}${v.value}${suffix}` : match;
+      if (!v || !v.value) return match;
+      // Reconstrói mantendo os parâmetros originais
+      return match.replace(/\^FD.*?\^FS/, `^FD${v.value}^FS`);
     });
 
     return result;
