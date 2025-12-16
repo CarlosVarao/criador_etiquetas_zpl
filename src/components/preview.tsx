@@ -15,33 +15,28 @@ interface Variable {
   imageName?: string;
 }
 
-// Regex para ^XG (imagens) - captura o nome da imagem
 const imageVariableRegex = /(\^FO(\d+),(\d+).*?)(\^XG([A-Z]+),)/gs;
-
-// Regex para códigos de barras ^FT...^BE...^FD...^FS
 const barcodeVariableRegex = /\^FT(\d+),(\d+)\^BE[A-Z],(\d+),[A-Z],[A-Z]\^FD(.*?)\^FS/gs;
 
 const generateUniqueId = () => Math.random().toString(36).substring(2, 9);
 
-// Função para extrair os blocos ~DG até ^XA
 const extractImageDefinitions = (content: string): string => {
   const imageDefRegex = /~DG[\s\S]*?\^XA/;
   const match = content.match(imageDefRegex);
   return match ? match[0] : "";
 };
 
-// Função para extrair uma definição específica de imagem pelo nome
 const getImageDefinitionByName = (imageDefinitions: string, imageName: string): string => {
-  const regex = new RegExp(`~DG${imageName}[\\s\\S]*?(?=~DG|\\^XA)`, 'i');
+  const escapedImageName = imageName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+  const regex = new RegExp(`(~DG${escapedImageName}[\\s\\S]*?(?=~DG|\\^XA|\\^XZ))`, 'i');
   const match = imageDefinitions.match(regex);
-  return match ? match[0] : "";
+  return match ? match[1] : "";
 };
 
 const extractVariables = (content: string): Variable[] => {
   const variables: Variable[] = [];
   let globalIndex = 0;
 
-  // Extrai variáveis de imagem (^XG)
   const imageMatches = Array.from(content.matchAll(imageVariableRegex));
   imageMatches.forEach((match) => {
     const imageName = match[5] || "";
@@ -58,7 +53,6 @@ const extractVariables = (content: string): Variable[] => {
     });
   });
 
-  // Extrai variáveis de código de barras (^FT...^BE...^FD)
   const barcodeMatches = Array.from(content.matchAll(barcodeVariableRegex));
   barcodeMatches.forEach((match) => {
     variables.push({
@@ -72,7 +66,6 @@ const extractVariables = (content: string): Variable[] => {
     });
   });
 
-  // Separa por tipo e ordena cada grupo
   const barcodes = variables.filter(v => v.type === 'barcode')
     .sort((a, b) => {
       if (a.y !== b.y) return a.y - b.y;
@@ -85,10 +78,7 @@ const extractVariables = (content: string): Variable[] => {
       return a.x - b.x;
     });
 
-  // Códigos de barras primeiro, depois imagens
   const sortedVariables = [...barcodes, ...images];
-
-  // Reindexar após ordenação
   sortedVariables.forEach((v, i) => v.index = i);
 
   return sortedVariables;
@@ -96,7 +86,6 @@ const extractVariables = (content: string): Variable[] => {
 
 const reorderPrnContent = (content: string): string => {
   const lines = content.split('\n');
-
   const mnyIndex = lines.findIndex(line => line.includes('^MNY'));
 
   if (mnyIndex === -1) {
@@ -192,15 +181,12 @@ const LabelOverlay: React.FC<LabelOverlayProps> = ({
   const scaleX = imageRect.width / (width * dpi);
   const scaleY = imageRect.height / (height * dpi);
 
-  // Offsets diferentes para cada tipo
   let leftPx, topPx;
 
   if (activeVariable.type === 'barcode') {
-    // Ajuste para código de barras
     leftPx = (activeVariable.x) * scaleX;
     topPx = (activeVariable.y - 50) * scaleY;
   } else {
-    // Ajuste para imagem
     leftPx = (activeVariable.x - 13) * scaleX;
     topPx = (activeVariable.y + 75) * scaleY;
   }
@@ -220,6 +206,53 @@ const LabelOverlay: React.FC<LabelOverlayProps> = ({
     </div>
   );
 };
+
+const cleanZplForDownload = (zpl: string, variables: Variable[], imageDefinitions: string) => {
+  let cleaned = zpl;
+
+  cleaned = cleaned.replace(
+    /\^FD(.*?)\^FS/gs,
+    (p1) => `^FD${p1.replace(/_5f/g, "_")}^FS`
+  );
+  cleaned = cleaned.replace(/\^XA\s*\^ID.*?\^FS\s*\^XZ\s*/gs, "");
+  cleaned = cleaned.replace(/~DG[\s\S]*?\^XA/gs, "^XA");
+  cleaned = cleaned.replace(/(\^BE[A-Z],\d+,)N(,[A-Z])/g, '$1Y$2');
+
+  const checkedImageNames = variables
+    .filter(v => v.type === 'image' && v.isChecked && v.imageName)
+    .map(v => v.imageName!.trim());
+
+  if (checkedImageNames.length > 0) {
+    let imageDefinitionsToInsert = "\n";
+
+    const uniqueCheckedImageNames = Array.from(new Set(checkedImageNames));
+
+    uniqueCheckedImageNames.forEach(imageName => {
+      const definition = getImageDefinitionByName(imageDefinitions, imageName);
+      if (definition) {
+        imageDefinitionsToInsert += definition.replace(/[\^XA\^XZ]/g, '') + "\n";
+      }
+    });
+
+    if (imageDefinitionsToInsert.trim()) {
+      // Insere logo após o ^XA e antes do ^PRB^FS.
+      // Modificado para casar especificamente com ^XA^PRB^FS para manter as definições em cima dessa sequência.
+      const insertionPointRegex = /(\^XA)(\^PRB\^FS)/;
+
+      if (cleaned.match(insertionPointRegex)) {
+        cleaned = cleaned.replace(insertionPointRegex,
+          (match, xa, prbfs) => `${xa}${imageDefinitionsToInsert}${prbfs}`
+        );
+      } else if (cleaned.includes('^XA')) {
+        // Fallback: Se tiver ^XA mas não tiver ^PRB^FS, insere logo após o primeiro ^XA
+        cleaned = cleaned.replace(/(\^XA)/, `$1${imageDefinitionsToInsert}`);
+      }
+    }
+  }
+
+  return cleaned;
+};
+
 
 export default function Preview() {
   const [originalContent, setOriginalContent] = useState("");
@@ -264,7 +297,6 @@ export default function Preview() {
 
     let result = originalContent;
 
-    // Cria mapa de variáveis por valor original para matching preciso
     const imageVarsMap = new Map(
       variables.filter(v => v.type === 'image').map(v => [v.originalValue, v])
     );
@@ -273,13 +305,11 @@ export default function Preview() {
       variables.filter(v => v.type === 'barcode').map(v => [v.originalValue, v])
     );
 
-    // Substitui imagens (^XG) usando o valor original como chave
     result = result.replace(/\^XG(.*?)(?=,)/gs, (match, captured) => {
       const v = imageVarsMap.get(captured);
       return v && v.value ? `^XG${v.value}` : match;
     });
 
-    // Substitui códigos de barras usando o valor original como chave
     result = result.replace(/(\^FT\d+,\d+\^BE[A-Z],\d+,[A-Z],[A-Z]\^FD)(.*?)(\^FS)/gs, (match, prefix, fdValue, suffix) => {
       const v = barcodeVarsMap.get(fdValue);
       if (!v || !v.value) return match;
@@ -346,7 +376,6 @@ export default function Preview() {
       const rawContent = e.target?.result as string;
       const reorderedContent = reorderPrnContent(rawContent);
 
-      // Extrai e armazena as definições de imagens
       const imgDefs = extractImageDefinitions(rawContent);
       setImageDefinitions(imgDefs);
 
@@ -378,7 +407,6 @@ export default function Preview() {
     setVariables((prev) =>
       prev.map((v) => {
         if (v.id === id) {
-          // Pega a definição da imagem quando marcado
           if (checked && v.imageName) {
             const imageDefinition = getImageDefinitionByName(imageDefinitions, v.imageName);
             console.log(`Checkbox marcado para: ${v.imageName}`);
@@ -391,25 +419,12 @@ export default function Preview() {
     );
   };
 
-  const cleanZplForDownload = (zpl: string) => {
-    let cleaned = zpl.replace(
-      /\^FD(.*?)\^FS/gs,
-      (p1) => `^FD${p1.replace(/_5f/g, "_")}^FS`
-    );
-    cleaned = cleaned.replace(/\^XA\s*\^ID.*?\^FS\s*\^XZ\s*/gs, "");
-    cleaned = cleaned.replace(/~DG.*?\^XA/gs, "^XA");
-
-    // Muda o terceiro parâmetro de N para Y nos códigos de barras ^BE
-    cleaned = cleaned.replace(/(\^BE[A-Z],\d+,)N(,[A-Z])/g, '$1Y$2');
-
-    return cleaned;
-  };
-
   const handleSubmit = () => {
     const zpl = generateZplWithCurrentValues();
     if (!zpl) return setError("Nada para processar.");
 
-    const finalContent = cleanZplForDownload(zpl);
+    const finalContent = cleanZplForDownload(zpl, variables, imageDefinitions);
+
     const fileExtension = fileName.split(".").pop();
     const newFileName = fileName.replace(
       `.${fileExtension}`,
@@ -434,7 +449,7 @@ export default function Preview() {
         <h2 className="text-xl font-bold text-gray-200 px-2 mb-2">
           Pré-visualização
         </h2>
-        <div className="flex flex-col  gap-8">
+        <div className="flex flex-col  gap-8">
           <div className="flex gap-6 space-y-6">
             <div className="w-full flex justify-between flex-col gap-5 m-0">
               <div className="min-h-[400px] flex items-center justify-center bg-gray-800 border-2 border-gray-600 rounded-xl shadow-xl overflow-hidden custom-scrollbar">
