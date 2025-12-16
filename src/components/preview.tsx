@@ -10,16 +10,32 @@ interface Variable {
   index: number;
   x: number;
   y: number;
-  type: 'image' | 'barcode'; // Novo campo para diferenciar tipo
+  type: 'image' | 'barcode';
+  isChecked?: boolean;
+  imageName?: string;
 }
 
-// Regex para ^XG (imagens)
-const imageVariableRegex = /(\^FO(\d+),(\d+).*?)(\^XG(.*?)(?=,))/gs;
+// Regex para ^XG (imagens) - captura o nome da imagem
+const imageVariableRegex = /(\^FO(\d+),(\d+).*?)(\^XG([A-Z]+),)/gs;
 
 // Regex para códigos de barras ^FT...^BE...^FD...^FS
 const barcodeVariableRegex = /\^FT(\d+),(\d+)\^BE[A-Z],(\d+),[A-Z],[A-Z]\^FD(.*?)\^FS/gs;
 
 const generateUniqueId = () => Math.random().toString(36).substring(2, 9);
+
+// Função para extrair os blocos ~DG até ^XA
+const extractImageDefinitions = (content: string): string => {
+  const imageDefRegex = /~DG[\s\S]*?\^XA/;
+  const match = content.match(imageDefRegex);
+  return match ? match[0] : "";
+};
+
+// Função para extrair uma definição específica de imagem pelo nome
+const getImageDefinitionByName = (imageDefinitions: string, imageName: string): string => {
+  const regex = new RegExp(`~DG${imageName}[\\s\\S]*?(?=~DG|\\^XA)`, 'i');
+  const match = imageDefinitions.match(regex);
+  return match ? match[0] : "";
+};
 
 const extractVariables = (content: string): Variable[] => {
   const variables: Variable[] = [];
@@ -28,6 +44,7 @@ const extractVariables = (content: string): Variable[] => {
   // Extrai variáveis de imagem (^XG)
   const imageMatches = Array.from(content.matchAll(imageVariableRegex));
   imageMatches.forEach((match) => {
+    const imageName = match[5] || "";
     variables.push({
       id: generateUniqueId(),
       x: parseInt(match[2], 10),
@@ -36,6 +53,8 @@ const extractVariables = (content: string): Variable[] => {
       value: match[5] || "",
       index: globalIndex++,
       type: 'image',
+      isChecked: false,
+      imageName: imageName,
     });
   });
 
@@ -211,6 +230,7 @@ export default function Preview() {
   const [searchVariaveis, setSearchVariaveis] = useState<
     Record<string, string>
   >({});
+  const [imageDefinitions, setImageDefinitions] = useState<string>("");
 
   const { imgRef, imageRect, updateDimensions } = useImageDimensions();
 
@@ -325,6 +345,11 @@ export default function Preview() {
     reader.onload = (e) => {
       const rawContent = e.target?.result as string;
       const reorderedContent = reorderPrnContent(rawContent);
+
+      // Extrai e armazena as definições de imagens
+      const imgDefs = extractImageDefinitions(rawContent);
+      setImageDefinitions(imgDefs);
+
       setOriginalContent(reorderedContent);
       setVariables(extractVariables(reorderedContent));
     };
@@ -346,6 +371,23 @@ export default function Preview() {
 
     setVariables((prev) =>
       prev.map((v) => (v.id === id ? { ...v, value: valor } : v))
+    );
+  };
+
+  const handleCheckboxChange = (id: string, checked: boolean) => {
+    setVariables((prev) =>
+      prev.map((v) => {
+        if (v.id === id) {
+          // Pega a definição da imagem quando marcado
+          if (checked && v.imageName) {
+            const imageDefinition = getImageDefinitionByName(imageDefinitions, v.imageName);
+            console.log(`Checkbox marcado para: ${v.imageName}`);
+            console.log(`Definição da imagem:\n${imageDefinition}`);
+          }
+          return { ...v, isChecked: checked };
+        }
+        return v;
+      })
     );
   };
 
@@ -507,6 +549,14 @@ export default function Preview() {
                             </p>
                           </label>
                           <div className="flex justify-between items-center gap-4 overflow-visible">
+                            {v.type === 'image' && (
+                              <input
+                                type="checkbox"
+                                checked={v.isChecked || false}
+                                onChange={(e) => handleCheckboxChange(v.id, e.target.checked)}
+                                className="w-5 h-5 cursor-pointer accent-yellow-500"
+                              />
+                            )}
                             <input
                               type="text"
                               value={searchVariaveis[v.id] || ""}
