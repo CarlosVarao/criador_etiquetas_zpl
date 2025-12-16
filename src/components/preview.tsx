@@ -241,7 +241,7 @@ const cleanZplForDownload = (zpl: string, variables: Variable[], imageDefinition
 
       if (cleaned.match(insertionPointRegex)) {
         cleaned = cleaned.replace(insertionPointRegex,
-          (match, xa, prbfs) => `${xa}${imageDefinitionsToInsert}${prbfs}`
+          (_, xa, prbfs) => `${xa}${imageDefinitionsToInsert}${prbfs}`
         );
       } else if (cleaned.includes('^XA')) {
         // Fallback: Se tiver ^XA mas não tiver ^PRB^FS, insere logo após o primeiro ^XA
