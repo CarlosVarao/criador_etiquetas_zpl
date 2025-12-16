@@ -218,25 +218,33 @@ const cleanZplForDownload = (zpl: string, variables: Variable[], imageDefinition
   cleaned = cleaned.replace(/~DG[\s\S]*?\^XA/gs, "^XA");
   cleaned = cleaned.replace(/(\^BE[A-Z],\d+,)N(,[A-Z])/g, '$1Y$2');
 
-  const checkedImageNames = variables
-    .filter(v => v.type === 'image' && v.isChecked && v.imageName)
-    .map(v => v.imageName!.trim());
+  const checkedImages = variables
+    .filter(v => v.type === 'image' && v.isChecked && v.imageName);
 
-  if (checkedImageNames.length > 0) {
+  if (checkedImages.length > 0) {
     let imageDefinitionsToInsert = "\n";
 
-    const uniqueCheckedImageNames = Array.from(new Set(checkedImageNames));
+    // Usaremos o originalValue para buscar a definição, mas o novo value para renomear
+    const uniqueCheckedImages = Array.from(new Set(checkedImages.map(v => v.id)))
+      .map(id => checkedImages.find(v => v.id === id)!);
 
-    uniqueCheckedImageNames.forEach(imageName => {
-      const definition = getImageDefinitionByName(imageDefinitions, imageName);
+    uniqueCheckedImages.forEach(v => {
+      const originalImageName = v.imageName!.trim();
+      const newImageName = v.value.trim();
+
+      // 1. Busca a definição original usando o nome original (imageName)
+      let definition = getImageDefinitionByName(imageDefinitions, originalImageName);
+
       if (definition) {
+        // 2. Renomeia a definição: ~DG[NOME_ORIGINAL] para ~DG[NOVO_VALOR]
+        definition = definition.replace(`~DG${originalImageName}`, `~DG${newImageName}`);
+
+        // 3. Adiciona ao bloco de inserção
         imageDefinitionsToInsert += definition.replace(/[\^XA\^XZ]/g, '') + "\n";
       }
     });
 
     if (imageDefinitionsToInsert.trim()) {
-      // Insere logo após o ^XA e antes do ^PRB^FS.
-      // Modificado para casar especificamente com ^XA^PRB^FS para manter as definições em cima dessa sequência.
       const insertionPointRegex = /(\^XA)(\^PRB\^FS)/;
 
       if (cleaned.match(insertionPointRegex)) {
@@ -244,7 +252,6 @@ const cleanZplForDownload = (zpl: string, variables: Variable[], imageDefinition
           (_, xa, prbfs) => `${xa}${imageDefinitionsToInsert}${prbfs}`
         );
       } else if (cleaned.includes('^XA')) {
-        // Fallback: Se tiver ^XA mas não tiver ^PRB^FS, insere logo após o primeiro ^XA
         cleaned = cleaned.replace(/(\^XA)/, `$1${imageDefinitionsToInsert}`);
       }
     }
