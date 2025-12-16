@@ -584,7 +584,7 @@ export default function Preview() {
                               value={searchVariaveis[v.id] || ""}
                               placeholder={v.type === 'barcode' ? 'Ex: 123456789012' : 'Insira a variável'}
                               onChange={(e) =>
-                                handleVariableChange(v.id, e.target.value)
+                                handleVariableChange(v.id, e.target.value.toUpperCase())
                               }
                               onFocus={() => handleFocus(v.id)}
                               onBlur={() => setActiveVariableId(null)}
