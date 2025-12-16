@@ -240,7 +240,7 @@ const cleanZplForDownload = (zpl: string, variables: Variable[], imageDefinition
         definition = definition.replace(`~DG${originalImageName}`, `~DG${newImageName}`);
 
         // 3. Adiciona ao bloco de inserção
-        imageDefinitionsToInsert += definition.replace(/[\^XA\^XZ]/g, '') + "\n";
+        imageDefinitionsToInsert += definition.replace(/\^(XA|XZ)/g, '') + "\n";
       }
     });
 
