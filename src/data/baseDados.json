@@ -56,27 +56,27 @@
   },
   {
     "label": "Tara Externa",
-    "value": "##TARA_EXTERNA##",
+    "value": "##TARA_EXTERNA@0,000 Kg##",
     "imagem": "TARA_EXTERNA.png"
   },
   {
     "label": "Tara Interna",
-    "value": "##TARA_INTERNA##",
+    "value": "##TARA_INTERNA@0,000 Kg##",
     "imagem": "TARA_INTERNA.png"
   },
   {
     "label": "Peso Bruto",
-    "value": "##PESO_BRUTO##",
+    "value": "##PESO_BRUTO@0,000 Kg##",
     "imagem": "PESO_BRUTO.png"
   },
   {
     "label": "Peso Líquido",
-    "value": "##PESO_LIQUIDO##",
+    "value": "##PESO_LIQUIDO@0,000 Kg##",
     "imagem": "PESO_LIQUIDO.png"
   },
   {
     "label": "Quantidade de Unidades/Sacos",
-    "value": "##QUANTIDADE##",
+    "value": "##QUANTIDADE@000##",
     "imagem": "QUANTIDADE.png"
   },
   {
@@ -91,12 +91,12 @@
   },
   {
     "label": "Data de Validade",
-    "value": "##DATA_VALIDADE##",
+    "value": "##DATA_VALIDADE@dd/MM/yyyy##",
     "imagem": "DATA_VALIDADE.png"
   },
   {
     "label": "Data de Produção",
-    "value": "##DATA_PRODUCAO##",
+    "value": "##DATA_PRODUCAO@dd/MM/yyyy##",
     "imagem": "DATA_PRODUCAO.png"
   },
   {
@@ -106,23 +106,18 @@
   },
   {
     "label": "Data de Embalagem",
-    "value": "##DATA_EMBALAGEM##",
+    "value": "##DATA_EMBALAGEM@dd/MM/yyyy##",
     "imagem": "DATA_EMBALAGEM.png"
   },
   {
     "label": "Data de Congelamento",
-    "value": "##DATA_CONGELAMENTO##",
+    "value": "##DATA_CONGELAMENTO@dd/MM/yyyy##",
     "imagem": "DATA_CONGELAMENTO.png"
   },
   {
     "label": "Tara Total (Interna + Externa)",
-    "value": "##TARA_TOTAL##",
+    "value": "##TARA_TOTAL@0,000 Kg##",
     "imagem": "TARA_TOTAL.png"
-  },
-  {
-    "label": "Lote",
-    "value": "##DATA_PRODUCAO##",
-    "imagem": "LOTE.png"
   },
   {
     "label": "Código Mercosul",
