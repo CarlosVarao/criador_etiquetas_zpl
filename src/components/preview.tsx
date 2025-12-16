@@ -465,7 +465,7 @@ export default function Preview() {
                 ) : error && !previewUrl ? (
                   <p className="text-red-400 p-8 text-center">{error}</p>
                 ) : previewUrl ? (
-                  <div className="w-full h-[700px] flex items-center justify-center relative overflow-auto">
+                  <div className="w-full h-[700px] flex items-center justify-center relative overflow-hidden">
                     <div className="relative inline-block border border-gray-600 shadow-2xl">
                       <img
                         ref={imgRef}
