@@ -37,7 +37,7 @@ interface LabelOverlayProps {
 // ============================================================================
 
 const DEBOUNCE_DELAY = 500;
-const DEFAULT_CONFIG: LabelConfig = { dpmm: 8, width: 4, height: 6 };
+const DEFAULT_CONFIG: LabelConfig = { dpmm: 8, width: 5, height: 6 };
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -425,9 +425,7 @@ const ImageZoom: React.FC<{ src: string; active: boolean }> = ({ src, active }) 
       height: LENS_SIZE,
       backgroundImage: `url(${src})`,
       backgroundRepeat: "no-repeat",
-
       backgroundSize: `${rect.width * ZOOM}px ${rect.height * ZOOM}px`,
-
       backgroundPosition: `${xPercent}% ${yPercent}%`,
       pointerEvents: "none",
       borderRadius: "8px",
