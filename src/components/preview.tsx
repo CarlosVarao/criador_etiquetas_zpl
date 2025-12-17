@@ -636,8 +636,10 @@ export default function Preview() {
     }
 
     const finalContent = cleanZplForDownload(zpl, variables, imageDefinitions);
-    const fileExtension = fileName.split(".").pop();
-    const newFileName = fileName.replace(`.${fileExtension}`, `-MODIFICADO.${fileExtension}`);
+
+    // 🔥 FORÇA SEMPRE .zpl
+    const baseName = fileName.replace(/\.[^/.]+$/, "");
+    const newFileName = `${baseName}.zpl`;
 
     const blob = new Blob([finalContent], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -652,6 +654,7 @@ export default function Preview() {
 
     setError(null);
   }, [generateZplWithCurrentValues, variables, imageDefinitions, fileName]);
+
 
   const handleConfigChange = useCallback((key: keyof LabelConfig, value: number) => {
     setConfig(prev => ({ ...prev, [key]: value }));
