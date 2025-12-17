@@ -370,28 +370,30 @@ const VariableItem: React.FC<{
           </p>
         </label>
 
-        <div className="flex justify-between items-center gap-4 overflow-visible">
-          {variable.type === 'image' && (
-            <input
-              type="checkbox"
-              checked={variable.isChecked || false}
-              onChange={(e) => onCheckboxChange(e.target.checked)}
-              onClick={(e) => e.stopPropagation()}
-              className="w-5 h-5 cursor-pointer accent-yellow-500"
-              aria-label="Incluir definição da imagem"
-            />
-          )}
+        <div className="flex justify-between items-center gap-3 overflow-visible">
+          <div className="flex items-center gap-2 w-full">
+            {variable.type === 'image' && (
+              <input
+                type="checkbox"
+                checked={variable.isChecked || false}
+                onChange={(e) => onCheckboxChange(e.target.checked)}
+                onClick={(e) => e.stopPropagation()}
+                className="w-6 h-6 cursor-pointer accent-yellow-500"
+                aria-label="Incluir definição da imagem"
+              />
+            )}
 
-          <input
-            type="text"
-            value={value}
-            placeholder={placeholder}
-            onChange={(e) => onChange(shouldUppercase ? e.target.value.toUpperCase() : e.target.value)}
-            onFocus={onFocus}
-            onClick={(e) => e.stopPropagation()}
-            className={`h-10 px-2 w-full truncate bg-gray-900 border text-[11px] border-gray-600 rounded text-white focus:border-yellow-600 outline-none transition-colors ${shouldUppercase ? 'uppercase' : ''
-              }`}
-          />
+            <input
+              type="text"
+              value={value}
+              placeholder={placeholder}
+              onChange={(e) => onChange(shouldUppercase ? e.target.value.toUpperCase() : e.target.value)}
+              onFocus={onFocus}
+              onClick={(e) => e.stopPropagation()}
+              className={`h-10 px-2 w-full truncate bg-gray-900 border text-[11px] border-gray-600 rounded text-white focus:border-yellow-600 outline-none transition-colors ${shouldUppercase ? 'uppercase' : ''
+                } placeholder:uppercase`}
+            />
+          </div>
 
           <DropdownSearch onSelect={onSelect} />
         </div>

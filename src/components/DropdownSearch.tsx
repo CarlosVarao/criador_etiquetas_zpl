@@ -36,7 +36,7 @@ export default function DropdownSearch({
   }, [search, listaOrdenada]);
 
   return (
-    <div className="relative inline-block w-[60%] overflow-visible">
+    <div className="relative inline-block w-[55%] overflow-visible">
       {/* BOTÃO */}
       <button
         ref={buttonRef}
@@ -49,7 +49,7 @@ export default function DropdownSearch({
       >
         Buscar Variaveis
         <svg
-          className="w-4 h-4 ms-1.5 -me-0.5"
+          className="w-4 h-4"
           aria-hidden="true"
           xmlns="http://www.w3.org/2000/svg"
           width="24"
