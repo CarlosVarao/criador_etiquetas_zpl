@@ -586,8 +586,6 @@ export default function Preview() {
     setFileName(file.name);
     setError(null);
     setActiveVariableId(null);
-    setVariableValues({});
-
     const reader = new FileReader();
 
     reader.onload = (e) => {
@@ -595,15 +593,27 @@ export default function Preview() {
       const reorderedContent = reorderPrnContent(rawContent);
       const imgDefs = extractImageDefinitions(rawContent);
 
+      // 1. Extrair as variáveis do conteúdo do ficheiro
+      const extractedVars = extractVariables(reorderedContent);
+
+      // 2. Criar um objeto com os valores iniciais (id: valor)
+      const initialValues: Record<string, string> = {};
+      extractedVars.forEach(v => {
+        initialValues[v.id] = v.value; // Pega no valor que veio do ZPL
+      });
+
+      // 3. Atualizar os estados
       setImageDefinitions(imgDefs);
       setOriginalContent(reorderedContent);
-      setVariables(extractVariables(reorderedContent));
+      setVariables(extractedVars);
+      setVariableValues(initialValues); // Preenche os inputs com os dados do ficheiro
     };
 
     reader.onerror = () => {
       setError("Erro ao ler o arquivo.");
       setOriginalContent("");
       setVariables([]);
+      setVariableValues({});
     };
 
     reader.readAsText(file);
