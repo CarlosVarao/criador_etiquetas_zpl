@@ -378,7 +378,7 @@ const VariableItem: React.FC<{
                 checked={variable.isChecked || false}
                 onChange={(e) => onCheckboxChange(e.target.checked)}
                 onClick={(e) => e.stopPropagation()}
-                className="w-6 h-6 cursor-pointer accent-yellow-500"
+                className="w-5 h-5 cursor-pointer accent-yellow-500"
                 aria-label="Incluir definição da imagem"
               />
             )}
