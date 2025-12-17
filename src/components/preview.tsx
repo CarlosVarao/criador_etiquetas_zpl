@@ -399,6 +399,62 @@ const VariableItem: React.FC<{
     );
   };
 
+const ImageZoom: React.FC<{ src: string; active: boolean }> = ({ src, active }) => {
+  const [zoomStyle, setZoomStyle] = useState<React.CSSProperties>({
+    display: "none",
+  });
+
+  // Aumente o ZOOM para pelo menos 2 para ver o efeito de ampliação
+  const ZOOM = 2;
+  const LENS_SIZE = 200;
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const xPercent = (x / rect.width) * 100;
+    const yPercent = (y / rect.height) * 100;
+
+    setZoomStyle({
+      display: "block",
+      position: "fixed",
+      left: e.clientX - LENS_SIZE / 2,
+      top: e.clientY - LENS_SIZE / 2,
+      width: LENS_SIZE,
+      height: LENS_SIZE,
+      backgroundImage: `url(${src})`,
+      backgroundRepeat: "no-repeat",
+
+      backgroundSize: `${rect.width * ZOOM}px ${rect.height * ZOOM}px`,
+
+      backgroundPosition: `${xPercent}% ${yPercent}%`,
+      pointerEvents: "none",
+      borderRadius: "8px",
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setZoomStyle({ display: "none" });
+  };
+
+  if (!active) return null;
+
+  return (
+    <div
+      className="absolute inset-0 z-80 cursor-none"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+    >
+      <div
+        className="fixed border-2 border-yellow-500 shadow-2xl z-50 bg-gray-900 overflow-hidden"
+        style={zoomStyle}
+      />
+    </div>
+  );
+};
+
+
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
@@ -630,6 +686,10 @@ export default function Preview() {
               ) : previewUrl ? (
                 <div className="w-full h-[700px] flex items-center justify-center relative overflow-hidden">
                   <div className="relative inline-block border border-gray-600 shadow-2xl">
+
+                    {/* COMPONENTE DE ZOOM ADICIONADO AQUI */}
+                    <ImageZoom src={previewUrl} active={!isLoading && !!previewUrl} />
+
                     <img
                       ref={imgRef}
                       src={previewUrl}
