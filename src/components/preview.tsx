@@ -222,7 +222,7 @@ const LabelOverlay: React.FC<LabelOverlayProps> = ({ variables, activeVariableId
   const scaleX = imageRect.width / (config.width * dpi);
   const scaleY = imageRect.height / (config.height * dpi);
   let pos = { left: activeVar.x * scaleX, top: activeVar.y * scaleY };
-  if (activeVar.type === 'barcode') { pos.left -= 20 * scaleX; pos.top -= 10 * scaleY; }
+  if (activeVar.type === 'barcode') pos.top -= 50 * scaleY;
   else if (activeVar.type === 'text') { pos.left -= 20 * scaleX; pos.top -= 20 * scaleY; }
   else { pos.left * scaleX; pos.top += 75 * scaleY; }
   return (
