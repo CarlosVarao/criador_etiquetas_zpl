@@ -228,11 +228,11 @@ const VariableItem: React.FC<{
         <div className="flex gap-2 items-center">
           <div className="flex items-center gap-1">
             <span className="text-[9px] text-gray-500">X:</span>
-            <input type="text" value={variable.x} onChange={e => onCoordChange('x', parseInt(e.target.value) || 0)} className="w-12 py-1 text-center bg-gray-900 border border-gray-700 rounded text-white text-[10px] outline-none" />
+            <input type="text" value={variable.x} onChange={e => onCoordChange('x', parseInt(e.target.value) || 0)} className="w-15 py-1 text-center bg-gray-900 border border-gray-700 rounded text-white text-[10px] outline-none" />
           </div>
           <div className="flex items-center gap-1">
             <span className="text-[9px] text-gray-500">Y:</span>
-            <input type="text" value={variable.y} onChange={e => onCoordChange('y', parseInt(e.target.value) || 0)} className="w-12 py-1 text-center bg-gray-900 border border-gray-700 rounded text-white text-[10px] outline-none" />
+            <input type="text" value={variable.y} onChange={e => onCoordChange('y', parseInt(e.target.value) || 0)} className="w-15 py-1 text-center bg-gray-900 border border-gray-700 rounded text-white text-[10px] outline-none" />
           </div>
         </div>
       </div>
