@@ -142,9 +142,11 @@ const extractVariables = (content: string): Variable[] => {
     }
   });
 
-  const sorted = [...variables.filter(v => v.type === 'barcode').sort(sortByPosition),
-  ...variables.filter(v => v.type === 'image').sort(sortByPosition),
-  ...variables.filter(v => v.type === 'text').sort(sortByPosition)];
+  const sorted = [
+    ...variables.filter(v => v.type === 'barcode').sort(sortByPosition),
+    ...variables.filter(v => v.type === 'image').sort(sortByPosition),
+    ...variables.filter(v => v.type === 'text').sort(sortByPosition)
+  ];
   sorted.forEach((v, i) => v.index = i);
   return sorted;
 };
@@ -161,7 +163,6 @@ const reorderPrnContent = (content: string): string => {
 
 const cleanZplForDownload = (zpl: string, variables: Variable[], imageDefinitions: string): string => {
   let cleaned = zpl;
-
   cleaned = cleaned.replace(/(?<!\^FH)\^FD/g, "^FH^FD");
   cleaned = cleaned.replace(/\^FD(.*?)\^FS/gs, (match) => match.replace(/_5f/g, "_"));
   cleaned = cleaned.replace(/\^XA\s*\^ID.*?\^FS\s*\^XZ\s*/gs, "");
@@ -254,19 +255,38 @@ const VariableItem: React.FC<{
   );
 };
 
-const ImageZoom: React.FC<{ src: string; active: boolean }> = ({ src, active }) => {
-  const [style, setStyle] = useState<React.CSSProperties>({ display: "none" });
+const ImageZoom: React.FC<{ active: boolean; targetRef: React.RefObject<HTMLDivElement | null> }> = ({ active, targetRef }) => {
+  const [zoomStyle, setZoomStyle] = useState<React.CSSProperties>({ display: "none" });
   if (!active) return null;
   return (
-    <div className="absolute inset-0 z-80 cursor-none"
-      onMouseMove={e => {
-        const rect = e.currentTarget.getBoundingClientRect();
+    <div
+      className="absolute inset-0 z-80 cursor-crosshair"
+      onMouseMove={(e) => {
+        if (!targetRef.current) return;
+        const rect = targetRef.current.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 100;
         const y = ((e.clientY - rect.top) / rect.height) * 100;
-        setStyle({ display: "block", position: "fixed", left: e.clientX - 100, top: e.clientY - 100, width: 200, height: 200, backgroundImage: `url(${src})`, backgroundSize: `${rect.width * 2}px ${rect.height * 2}px`, backgroundPosition: `${x}% ${y}%`, pointerEvents: "none", borderRadius: "8px" });
+        setZoomStyle({
+          display: "block",
+          position: "fixed",
+          left: e.clientX + 25,
+          top: e.clientY - 125,
+          width: 250,
+          height: 250,
+          backgroundColor: "#111827",
+          backgroundImage: `url(${targetRef.current.querySelector('img')?.src})`,
+          backgroundSize: `${rect.width * 2}px ${rect.height * 2}px`,
+          backgroundPosition: `${x}% ${y}%`,
+          pointerEvents: "none",
+          borderRadius: "12px",
+          border: "2px solid #f0b100",
+          boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.5)",
+          zIndex: 999
+        });
       }}
-      onMouseLeave={() => setStyle({ display: "none" })}>
-      <div className="fixed border-2 border-yellow-500 shadow-2xl z-50 bg-gray-900" style={style} />
+      onMouseLeave={() => setZoomStyle({ display: "none" })}
+    >
+      <div style={zoomStyle} />
     </div>
   );
 };
@@ -287,8 +307,10 @@ export default function Preview() {
   const [previewUrl, setPreviewUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false); // NOVO: Estado para drag and drop
 
   const { imgRef, imageRect, updateDimensions } = useImageDimensions();
+  const containerRef = useRef<HTMLDivElement>(null);
   const variableRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -297,6 +319,46 @@ export default function Preview() {
     barcodeMap: new Map(variables.filter(v => v.type === 'barcode').map(v => [v.originalValue, v])),
     textMap: new Map(variables.filter(v => v.type === 'text').map(v => [v.originalValue, v]))
   }), [variables]);
+
+  // Função centralizada para processar o arquivo (independente se veio de clique ou drop)
+  const processFile = useCallback((file: File) => {
+    setFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const raw = e.target?.result as string;
+      const reordered = reorderPrnContent(raw);
+      const extracted = extractVariables(reordered);
+      const initial: Record<string, string> = {};
+      extracted.forEach(v => initial[v.id] = v.value);
+      setImageDefinitions(extractImageDefinitions(raw));
+      setOriginalContent(reordered);
+      setVariables(extracted);
+      setVariableValues(initial);
+    };
+    reader.readAsText(file);
+  }, []);
+
+  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) processFile(file);
+  }, [processFile]);
+
+  // Handlers para Drag and Drop
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
+  };
 
   const generateZplWithCurrentValues = useCallback(() => {
     if (!originalContent || variables.length === 0) return "";
@@ -329,7 +391,6 @@ export default function Preview() {
     const zpl = generateZplWithCurrentValues();
     if (!zpl) return;
 
-    // NOVIDADE: Para o preview, injetamos TODAS as definições de imagem (ignora checkbox)
     let previewZpl = zpl;
     if (imageDefinitions) {
       previewZpl = previewZpl.replace(/~DG[\s\S]*?\^XA/gs, "^XA");
@@ -355,25 +416,6 @@ export default function Preview() {
 
   const debouncedRenderPreview = useDebounce(renderLabelPreview, DEBOUNCE_DELAY);
 
-  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const raw = e.target?.result as string;
-      const reordered = reorderPrnContent(raw);
-      const extracted = extractVariables(reordered);
-      const initial: Record<string, string> = {};
-      extracted.forEach(v => initial[v.id] = v.value);
-      setImageDefinitions(extractImageDefinitions(raw));
-      setOriginalContent(reordered);
-      setVariables(extracted);
-      setVariableValues(initial);
-    };
-    reader.readAsText(file);
-  }, []);
-
   const handleVariableChange = (id: string, value: string) => {
     setVariableValues(p => ({ ...p, [id]: value }));
     setVariables(p => p.map(v => v.id === id ? { ...v, value } : v));
@@ -382,7 +424,6 @@ export default function Preview() {
   const handleSubmit = useCallback(() => {
     const zpl = generateZplWithCurrentValues();
     if (!zpl) return;
-    // O download mantém a regra do checkbox
     const final = cleanZplForDownload(zpl, variables, imageDefinitions);
     const blob = new Blob([final], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -399,17 +440,47 @@ export default function Preview() {
       <div className="flex flex-col gap-8">
         <div className="flex gap-6 space-y-6">
           <div className="w-full flex justify-between flex-col gap-5">
-            <div className="min-h-[400px] flex items-center justify-center bg-gray-800 border-2 border-gray-600 rounded-xl shadow-xl overflow-hidden relative">
-              {isLoading ? <SyncLoader color="#f0b100" /> : error && !previewUrl ? <p className="text-red-400">{error}</p> : previewUrl ? (
+            <div
+              ref={containerRef}
+              className={`min-h-[400px] flex items-center justify-center border-2 rounded-xl shadow-xl overflow-hidden relative transition-all ${isDragging ? "border-yellow-500 bg-gray-700/50 scale-[1.01]" : "border-gray-600 bg-gray-800"
+                }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              {isLoading ? (
+                <SyncLoader color="#f0b100" />
+              ) : error && !previewUrl ? (
+                <p className="text-red-400">{error}</p>
+              ) : previewUrl ? (
                 <div className="w-full h-[700px] flex items-center justify-center relative overflow-hidden">
+                  <ImageZoom active={!!previewUrl} targetRef={containerRef} />
                   <div className="relative inline-block border border-gray-600 shadow-2xl">
-                    <ImageZoom src={previewUrl} active={!!previewUrl} />
-                    <img ref={imgRef} src={previewUrl} onLoad={updateDimensions} alt="Etiqueta" className="block max-w-full max-h-[680px]" />
-                    <LabelOverlay variables={variables} activeVariableId={activeVariableId} imageRect={imageRect} config={config} />
+                    <img
+                      ref={imgRef}
+                      src={previewUrl}
+                      onLoad={updateDimensions}
+                      alt="Etiqueta"
+                      className="block max-w-full max-h-[680px]"
+                    />
+                    <LabelOverlay
+                      variables={variables}
+                      activeVariableId={activeVariableId}
+                      imageRect={imageRect}
+                      config={config}
+                    />
                   </div>
                 </div>
-              ) : <div onClick={() => fileInputRef.current?.click()} className="cursor-pointer hover:bg-gray-700/50 p-6 text-gray-500 italic">Carregue um arquivo ZPL.</div>}
+              ) : (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full h-full flex flex-col items-center justify-center cursor-pointer p-6 text-gray-500 italic text-center"
+                >
+                  <p>{isDragging ? "Solte para carregar" : "Clique ou arraste um arquivo ZPL aqui."}</p>
+                </div>
+              )}
             </div>
+
             <Cards title="Configuração">
               <div className="flex flex-wrap justify-around gap-4">
                 {[{ l: 'DPMM', k: 'dpmm' }, { l: 'Largura', k: 'width' }, { l: 'Altura', k: 'height' }].map(i => (
@@ -421,22 +492,47 @@ export default function Preview() {
               </div>
             </Cards>
           </div>
+
           <div className="flex flex-col w-[70%] justify-between gap-6">
             <Cards title="Variáveis">
               <div className={`transition-all duration-500 overflow-hidden ${showVariables ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"}`}>
                 <div className="flex flex-col overflow-y-scroll pr-3 custom-scrollbar gap-4 max-h-[530px]">
                   {variables.map((v, i) => (
-                    <VariableItem key={v.id} variable={v} index={i} isActive={v.id === activeVariableId} value={variableValues[v.id] || ""} onFocus={() => setActiveVariableId(v.id)} onChange={val => handleVariableChange(v.id, val)} onCheckboxChange={c => setVariables(prev => prev.map(item => item.id === v.id ? { ...item, isChecked: c } : item))} onSelect={val => handleVariableChange(v.id, val)} setRef={node => node && variableRefs.current.set(v.id, node)} />
+                    <VariableItem
+                      key={v.id}
+                      variable={v}
+                      index={i}
+                      isActive={v.id === activeVariableId}
+                      value={variableValues[v.id] || ""}
+                      onFocus={() => setActiveVariableId(v.id)}
+                      onChange={val => handleVariableChange(v.id, val)}
+                      onCheckboxChange={c => setVariables(prev => prev.map(item => item.id === v.id ? { ...item, isChecked: c } : item))}
+                      onSelect={val => handleVariableChange(v.id, val)}
+                      setRef={node => node && variableRefs.current.set(v.id, node)}
+                    />
                   ))}
                 </div>
               </div>
             </Cards>
+
             <Cards title="Upload Arquivo" seach={fileName}>
-              <label className="h-full flex flex-col items-center justify-center p-4 border-2 border-dashed border-yellow-400 rounded cursor-pointer hover:bg-gray-800 transition-colors">
-                <span className="text-yellow-400 font-semibold">Carregar Arquivo</span>
+              <label
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`h-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded cursor-pointer transition-colors ${isDragging ? "border-white bg-yellow-600/20" : "border-yellow-400 hover:bg-gray-800"
+                  }`}
+              >
+                <span className="text-yellow-400 font-semibold">{isDragging ? "Pode soltar!" : "Carregar Arquivo"}</span>
                 <input ref={fileInputRef} type="file" accept=".zpl,.prn,.txt" onChange={handleFileChange} className="hidden" />
               </label>
-              <button onClick={handleSubmit} disabled={!originalContent} className="mt-4 w-full py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold rounded cursor-pointer">Baixar Modificado</button>
+              <button
+                onClick={handleSubmit}
+                disabled={!originalContent}
+                className="mt-4 w-full py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold rounded cursor-pointer"
+              >
+                Baixar Modificado
+              </button>
             </Cards>
           </div>
         </div>
