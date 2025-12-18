@@ -39,6 +39,18 @@ interface LabelOverlayProps {
 const DEBOUNCE_DELAY = 500;
 const DEFAULT_CONFIG: LabelConfig = { dpmm: 8, width: 5, height: 6 };
 
+// Mapa CP850 para conversão de caracteres acentuados
+const cp850Map: Record<string, string> = {
+  // Minúsculas
+  'á': '_a0', 'é': '_82', 'í': '_a1', 'ó': '_a2', 'ú': '_a3',
+  'â': '_83', 'ê': '_88', 'ô': '_93', 'ã': '_a4', 'õ': '_a5',
+  'ç': '_87', 'à': '_85', 'è': '_8a', 'ì': '_8d', 'ò': '_95', 'ù': '_97',
+  // Maiúsculas
+  'Á': '_b5', 'É': '_90', 'Í': '_d6', 'Ó': '_e0', 'Ú': '_e9',
+  'Â': '_b6', 'Ê': '_d2', 'Ô': '_e2', 'Ã': '_c7', 'Õ': '_e5',
+  'Ç': '_80', 'À': '_b7', 'È': '_d4', 'Ì': '_de', 'Ò': '_e3', 'Ù': '_eb'
+};
+
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
@@ -49,6 +61,15 @@ const generateUniqueId = (): string =>
 const sortByPosition = (a: Variable, b: Variable): number => {
   if (a.y !== b.y) return a.y - b.y;
   return a.x - b.x;
+};
+
+// Função para converter texto com acentos para CP850
+const convertToCP850 = (text: string): string => {
+  let result = text;
+  for (const [char, code] of Object.entries(cp850Map)) {
+    result = result.replace(new RegExp(char, 'g'), code);
+  }
+  return result;
 };
 
 // ============================================================================
@@ -406,7 +427,6 @@ const ImageZoom: React.FC<{ src: string; active: boolean }> = ({ src, active }) 
     display: "none",
   });
 
-  // Aumente o ZOOM para pelo menos 2 para ver o efeito de ampliação
   const ZOOM = 2;
   const LENS_SIZE = 200;
 
@@ -520,7 +540,8 @@ export default function Preview() {
       /(\^FT\d+,\d+\^BE[A-Z],\d+,[A-Z],[A-Z]\^FD)(.*?)(\^FS)/gs,
       (match, prefix, fdValue, suffix) => {
         const v = barcodeMap.get(fdValue);
-        return v?.value ? `${prefix}${v.value}${suffix}` : match;
+        // Converte para CP850 antes de inserir no ZPL
+        return v?.value ? `${prefix}${convertToCP850(v.value)}${suffix}` : match;
       }
     );
 
@@ -536,7 +557,8 @@ export default function Preview() {
       (match, x, y, middlePart, fdValue, fsPart) => {
         if (barcodePos.has(`${x},${y}`)) return match;
         const v = textMap.get(fdValue);
-        return v?.value ? `^FT${x},${y}${middlePart}${v.value}${fsPart}` : match;
+        // Converte para CP850 antes de inserir no ZPL
+        return v?.value ? `^FT${x},${y}${middlePart}${convertToCP850(v.value)}${fsPart}` : match;
       }
     );
 
@@ -593,20 +615,17 @@ export default function Preview() {
       const reorderedContent = reorderPrnContent(rawContent);
       const imgDefs = extractImageDefinitions(rawContent);
 
-      // 1. Extrair as variáveis do conteúdo do ficheiro
       const extractedVars = extractVariables(reorderedContent);
 
-      // 2. Criar um objeto com os valores iniciais (id: valor)
       const initialValues: Record<string, string> = {};
       extractedVars.forEach(v => {
-        initialValues[v.id] = v.value; // Pega no valor que veio do ZPL
+        initialValues[v.id] = v.value;
       });
 
-      // 3. Atualizar os estados
       setImageDefinitions(imgDefs);
       setOriginalContent(reorderedContent);
       setVariables(extractedVars);
-      setVariableValues(initialValues); // Preenche os inputs com os dados do ficheiro
+      setVariableValues(initialValues);
     };
 
     reader.onerror = () => {
@@ -649,7 +668,6 @@ export default function Preview() {
 
     const finalContent = cleanZplForDownload(zpl, variables, imageDefinitions);
 
-    // 🔥 FORÇA SEMPRE .zpl
     const baseName = fileName.replace(/\.[^/.]+$/, "");
     const newFileName = `${baseName}.zpl`;
 
@@ -700,7 +718,6 @@ export default function Preview() {
                 <div className="w-full h-[700px] flex items-center justify-center relative overflow-hidden">
                   <div className="relative inline-block border border-gray-600 shadow-2xl">
 
-                    {/* COMPONENTE DE ZOOM ADICIONADO AQUI */}
                     <ImageZoom src={previewUrl} active={!isLoading && !!previewUrl} />
 
                     <img
