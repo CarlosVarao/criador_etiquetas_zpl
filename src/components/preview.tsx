@@ -88,7 +88,7 @@ const extractVariables = (content: string): Variable[] => {
   const variables: Variable[] = [];
   let globalIndex = 0;
 
-  const imageRegex = /(\^FO(\d+),(\d+).*?)(\^XG([A-Z]+),)/gs;
+  const imageRegex = /(\^FO(\d+),(\d+).*?)(\^XG([A-Z0-9]+),)/gs;
   const barcodeRegex = /\^FT(\d+),(\d+)\^BE[A-Z],(\d+),[A-Z],[A-Z]\^FD(.*?)\^FS/gs;
   const allFdRegex = /\^FT(\d+),(\d+).*?\^FD(.*?)\^FS/gs;
 
@@ -162,9 +162,7 @@ const reorderPrnContent = (content: string): string => {
 const cleanZplForDownload = (zpl: string, variables: Variable[], imageDefinitions: string): string => {
   let cleaned = zpl;
 
-  // AJUSTE: Só coloca ^FH se NÃO houver um ^FH imediatamente antes do ^FD
   cleaned = cleaned.replace(/(?<!\^FH)\^FD/g, "^FH^FD");
-
   cleaned = cleaned.replace(/\^FD(.*?)\^FS/gs, (match) => match.replace(/_5f/g, "_"));
   cleaned = cleaned.replace(/\^XA\s*\^ID.*?\^FS\s*\^XZ\s*/gs, "");
   cleaned = cleaned.replace(/~DG[\s\S]*?\^XA/gs, "^XA");
@@ -224,7 +222,7 @@ const LabelOverlay: React.FC<LabelOverlayProps> = ({ variables, activeVariableId
   let pos = { left: activeVar.x * scaleX, top: activeVar.y * scaleY };
   if (activeVar.type === 'barcode') pos.top -= 50 * scaleY;
   else if (activeVar.type === 'text') { pos.left -= 20 * scaleX; pos.top -= 20 * scaleY; }
-  else { pos.left * scaleX; pos.top += 75 * scaleY; }
+  else { pos.top += 75 * scaleY; }
   return (
     <div className="absolute z-50 pointer-events-none flex items-center justify-center font-bold text-black" style={{ ...pos }}>
       <span className="bg-[red] text-white px-1 text-[10px] shadow">X</span>
@@ -307,7 +305,6 @@ export default function Preview() {
 
     result = result.replace(/\^XG(.*?)(?=,)/gs, (m, cap) => imageMap.get(cap)?.value ? `^XG${imageMap.get(cap)!.value}` : m);
 
-    // Regex para substituir garantindo que o valor da input (v.value) seja usado
     result = result.replace(/(\^FT\d+,\d+\^BE[A-Z],\d+,[A-Z],[A-Z])(?:\^FH)?\^FD(.*?)\^FS/gs, (_, prefix, fdValue) => {
       const v = barcodeMap.get(fdValue);
       const content = v ? convertToCP850(v.value) : fdValue;
@@ -321,7 +318,6 @@ export default function Preview() {
       if (barcodePos.has(`${x},${y}`)) return m;
       const v = textMap.get(fdValue);
       const content = v ? convertToCP850(v.value) : fdValue;
-      // Garante que o FH seja inserido se não existir
       const hasFH = middle.includes('^FH');
       return `^FT${x},${y}${hasFH ? middle : middle + '^FH'}^FD${content}${fsPart}`;
     });
@@ -332,16 +328,30 @@ export default function Preview() {
   const renderLabelPreview = useCallback(async () => {
     const zpl = generateZplWithCurrentValues();
     if (!zpl) return;
+
+    // NOVIDADE: Para o preview, injetamos TODAS as definições de imagem (ignora checkbox)
+    let previewZpl = zpl;
+    if (imageDefinitions) {
+      previewZpl = previewZpl.replace(/~DG[\s\S]*?\^XA/gs, "^XA");
+      let allDefs = imageDefinitions;
+      variables.filter(v => v.type === 'image').forEach(v => {
+        if (v.imageName) {
+          allDefs = allDefs.replace(new RegExp(`~DG${v.imageName}`, 'g'), `~DG${v.value}`);
+        }
+      });
+      previewZpl = previewZpl.replace('^XA', `${allDefs}\n^XA`);
+    }
+
     setIsLoading(true); setError(null);
     try {
       const resp = await fetch(`https://api.labelary.com/v1/printers/${config.dpmm}dpmm/labels/${config.width}x${config.height}/0/`, {
-        method: "POST", headers: { Accept: "image/png", "Content-Type": "application/x-www-form-urlencoded" }, body: zpl
+        method: "POST", headers: { Accept: "image/png", "Content-Type": "application/x-www-form-urlencoded" }, body: previewZpl
       });
       if (!resp.ok) throw new Error(await resp.text());
       setPreviewUrl(URL.createObjectURL(await resp.blob()));
       setShowVariables(true);
     } catch (err: any) { setError(err.message); } finally { setIsLoading(false); }
-  }, [config, generateZplWithCurrentValues]);
+  }, [config, variables, imageDefinitions, generateZplWithCurrentValues]);
 
   const debouncedRenderPreview = useDebounce(renderLabelPreview, DEBOUNCE_DELAY);
 
@@ -372,6 +382,7 @@ export default function Preview() {
   const handleSubmit = useCallback(() => {
     const zpl = generateZplWithCurrentValues();
     if (!zpl) return;
+    // O download mantém a regra do checkbox
     const final = cleanZplForDownload(zpl, variables, imageDefinitions);
     const blob = new Blob([final], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
