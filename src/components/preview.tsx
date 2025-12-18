@@ -433,10 +433,10 @@ export default function Preview() {
             </Cards>
             <Cards title="Upload Arquivo" seach={fileName}>
               <label className="h-full flex flex-col items-center justify-center p-4 border-2 border-dashed border-yellow-400 rounded cursor-pointer hover:bg-gray-800 transition-colors">
-                <span className="text-yellow-400 font-semibold">Carregar ZPL</span>
+                <span className="text-yellow-400 font-semibold">Carregar Arquivo</span>
                 <input ref={fileInputRef} type="file" accept=".zpl,.prn,.txt" onChange={handleFileChange} className="hidden" />
               </label>
-              <button onClick={handleSubmit} disabled={!originalContent} className="mt-4 w-full py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold rounded">Baixar Modificado</button>
+              <button onClick={handleSubmit} disabled={!originalContent} className="mt-4 w-full py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold rounded cursor-pointer">Baixar Modificado</button>
             </Cards>
           </div>
         </div>
