@@ -83,59 +83,46 @@ const getImageDefinitionByName = (imageDefinitions: string, imageName: string): 
 const extractVariables = (content: string): Variable[] => {
   const variables: Variable[] = [];
 
-  // Regex atualizadas para capturar a ordem exata do arquivo
+  // Regex para Imagens
   const imageRegex = /\^FO(\d+),(\d+).*?\^XG([A-Z0-9]+),/gs;
-  const barcodeRegex = /\^FT(\d+),(\d+)\^BE[A-Z],(\d+),[A-Z],[A-Z]\^FD(.*?)\^FS/gs;
-  const textRegex = /\^FT(\d+),(\d+)(?:(?!\^BE).)*?\^FD(.*?)\^FS/gs;
+  // Regex para Barcodes (Suporta ^BE e ^BC)
+  const barcodeRegex = /\^FT(\d+),(\d+)\^(?:BE|BC)[A-Z],.*?\^FD(.*?)\^FS/gs;
+  // Regex para Textos (Evita campos que contenham comandos de barcode)
+  const textRegex = /\^FT(\d+),(\d+)(?:(?!\^(?:BE|BC)).)*?\^FD(.*?)\^FS/gs;
 
-  // Extrair Imagens
   for (const match of content.matchAll(imageRegex)) {
     variables.push({
       id: generateUniqueId(),
-      x: parseInt(match[1], 10),
-      y: parseInt(match[2], 10),
-      originalValue: match[3],
-      value: match[3],
-      index: 0,
-      type: 'image',
-      isChecked: false,
-      imageName: match[3],
+      x: parseInt(match[1], 10), y: parseInt(match[2], 10),
+      originalValue: match[3], value: match[3],
+      index: 0, type: 'image', isChecked: false, imageName: match[3],
     });
   }
 
-  // Extrair Barcodes
   const barcodePositions = new Set<string>();
   for (const match of content.matchAll(barcodeRegex)) {
-    const x = parseInt(match[1], 10);
-    const y = parseInt(match[2], 10);
+    const x = parseInt(match[1], 10), y = parseInt(match[2], 10);
     barcodePositions.add(`${x},${y}`);
     variables.push({
       id: generateUniqueId(),
       x, y,
-      originalValue: match[4],
-      value: match[4],
-      index: 0,
-      type: 'barcode',
+      originalValue: match[3], value: match[3],
+      index: 0, type: 'barcode',
     });
   }
 
-  // Extrair Textos (evitando posições de barcode)
   for (const match of content.matchAll(textRegex)) {
-    const x = parseInt(match[1], 10);
-    const y = parseInt(match[2], 10);
+    const x = parseInt(match[1], 10), y = parseInt(match[2], 10);
     if (!barcodePositions.has(`${x},${y}`)) {
       variables.push({
         id: generateUniqueId(),
         x, y,
-        originalValue: match[3],
-        value: match[3],
-        index: 0,
-        type: 'text',
+        originalValue: match[3], value: match[3],
+        index: 0, type: 'text',
       });
     }
   }
 
-  // Ordenar por tipo e depois por posição para facilitar a edição no painel
   const sorted = [
     ...variables.filter(v => v.type === 'barcode'),
     ...variables.filter(v => v.type === 'image'),
@@ -152,8 +139,7 @@ const reorderPrnContent = (content: string): string => {
   if (mnyIndex === -1) return content;
   const xgLines = lines.filter(line => line.includes('^XG'));
   const otherLines = lines.filter((line, idx) => idx <= mnyIndex || !line.includes('^XG'));
-  const insertIndex = mnyIndex + 1;
-  return [...otherLines.slice(0, insertIndex), ...xgLines, ...otherLines.slice(insertIndex)].join('\n');
+  return [...otherLines.slice(0, mnyIndex + 1), ...xgLines, ...otherLines.slice(mnyIndex + 1)].join('\n');
 };
 
 const cleanZplForDownload = (zpl: string, variables: Variable[], imageDefinitions: string): string => {
@@ -162,6 +148,8 @@ const cleanZplForDownload = (zpl: string, variables: Variable[], imageDefinition
   cleaned = cleaned.replace(/\^FD(.*?)\^FS/gs, (match) => match.replace(/_5f/g, "_"));
   cleaned = cleaned.replace(/\^XA\s*\^ID.*?\^FS\s*\^XZ\s*/gs, "");
   cleaned = cleaned.replace(/~DG[\s\S]*?\^XA/gs, "^XA");
+
+  // Modifica apenas o ^BE para Y (EAN-13)
   cleaned = cleaned.replace(/(\^BE[A-Z],\d+,)N(,[A-Z])/g, '$1Y$2');
 
   const checkedImages = variables.filter(v => v.type === 'image' && v.isChecked && v.imageName);
@@ -175,8 +163,7 @@ const cleanZplForDownload = (zpl: string, variables: Variable[], imageDefinition
         imageDefsToInsert += definition.replace(/\^(XA|XZ)/g, '') + "\n";
       }
     });
-    const insertRegex = /(\^XA)(\^PRB\^FS)/;
-    cleaned = cleaned.match(insertRegex) ? cleaned.replace(insertRegex, `$1${imageDefsToInsert}$2`) : cleaned.replace(/(\^XA)/, `$1${imageDefsToInsert}`);
+    cleaned = cleaned.replace(/(\^XA)/, `$1${imageDefsToInsert}`);
   }
   return cleaned;
 };
@@ -341,7 +328,6 @@ export default function Preview() {
     if (file) processFile(file);
   }, [processFile]);
 
-  // Lógica de Geração Baseada em POSIÇÃO (Ordem de ocorrência no ZPL)
   const generateZplWithCurrentValues = useCallback(() => {
     if (!originalContent || variables.length === 0) return "";
     let result = originalContent;
@@ -359,17 +345,17 @@ export default function Preview() {
       return v ? `^FO${v.x},${v.y}${mid}${v.value},` : m;
     });
 
-    // 2. Atualiza Barcodes
-    result = result.replace(/\^FT(\d+),(\d+)(\^BE[A-Z],\d+,[A-Z],[A-Z])(?:\^FH)?\^FD(.*?)\^FS/gs, (m, x, y, prefix) => {
+    // 2. Atualiza Barcodes (Suporta ^BE e ^BC)
+    result = result.replace(/\^FT(\d+),(\d+)(\^(?:BE|BC)[A-Z],.*?\^FD)(.*?)(\^FS)/gs, (m, x, y, prefix, _, fsPart) => {
       const v = barcodes[bcIdx++];
       if (v) {
         barcodePos.add(`${x},${y}`);
-        return `^FT${v.x},${v.y}${prefix}^FH^FD${convertToCP850(v.value)}^FS`;
+        return `^FT${v.x},${v.y}${prefix}${convertToCP850(v.value)}${fsPart}`;
       }
       return m;
     });
 
-    // 3. Atualiza Textos
+    // 3. Atualiza Textos (Usando _ para o que não é usado)
     result = result.replace(/\^FT(\d+),(\d+)(.*?)(\^FD)(.*?)(\^FS)/gs, (m, x, y, middle, _, __, fsPart) => {
       if (barcodePos.has(`${x},${y}`)) return m;
       const v = texts[txtIdx++];
@@ -384,19 +370,15 @@ export default function Preview() {
   const renderLabelPreview = useCallback(async () => {
     const zpl = generateZplWithCurrentValues();
     if (!zpl) return;
-
     let previewZpl = zpl;
     if (imageDefinitions) {
       previewZpl = previewZpl.replace(/~DG[\s\S]*?\^XA/gs, "^XA");
       let allDefs = imageDefinitions;
       variables.filter(v => v.type === 'image').forEach(v => {
-        if (v.imageName) {
-          allDefs = allDefs.replace(new RegExp(`~DG${v.imageName}`, 'g'), `~DG${v.value}`);
-        }
+        if (v.imageName) allDefs = allDefs.replace(new RegExp(`~DG${v.imageName}`, 'g'), `~DG${v.value}`);
       });
       previewZpl = previewZpl.replace('^XA', `${allDefs}\n^XA`);
     }
-
     setIsLoading(true); setError(null);
     try {
       const resp = await fetch(`https://api.labelary.com/v1/printers/${config.dpmm}dpmm/labels/${config.width}x${config.height}/0/`, {
@@ -445,11 +427,7 @@ export default function Preview() {
               onDragLeave={() => setIsDragging(false)}
               onDrop={e => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files?.[0]; if (file) processFile(file); }}
             >
-              {isLoading ? (
-                <SyncLoader color="#f0b100" />
-              ) : error && !previewUrl ? (
-                <p className="text-red-400">{error}</p>
-              ) : previewUrl ? (
+              {isLoading ? <SyncLoader color="#f0b100" /> : error && !previewUrl ? <p className="text-red-400">{error}</p> : previewUrl ? (
                 <div className="w-full h-[700px] flex items-center justify-center relative overflow-hidden">
                   <ImageZoom active={!!previewUrl} targetRef={containerRef} />
                   <div className="relative inline-block border border-gray-600 shadow-2xl">
