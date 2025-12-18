@@ -55,11 +55,6 @@ const cp850Map: Record<string, string> = {
 
 const generateUniqueId = (): string => Math.random().toString(36).substring(2, 9);
 
-const sortByPosition = (a: Variable, b: Variable): number => {
-  if (a.y !== b.y) return a.y - b.y;
-  return a.x - b.x;
-};
-
 const convertToCP850 = (text: string): string => {
   let result = text;
   for (const [char, code] of Object.entries(cp850Map)) {
@@ -87,67 +82,66 @@ const getImageDefinitionByName = (imageDefinitions: string, imageName: string): 
 
 const extractVariables = (content: string): Variable[] => {
   const variables: Variable[] = [];
-  let globalIndex = 0;
 
-  const imageRegex = /(\^FO(\d+),(\d+).*?)(\^XG([A-Z0-9]+),)/gs;
+  // Regex atualizadas para capturar a ordem exata do arquivo
+  const imageRegex = /\^FO(\d+),(\d+).*?\^XG([A-Z0-9]+),/gs;
   const barcodeRegex = /\^FT(\d+),(\d+)\^BE[A-Z],(\d+),[A-Z],[A-Z]\^FD(.*?)\^FS/gs;
-  const allFdRegex = /\^FT(\d+),(\d+).*?\^FD(.*?)\^FS/gs;
+  const textRegex = /\^FT(\d+),(\d+)(?:(?!\^BE).)*?\^FD(.*?)\^FS/gs;
 
-  const imageMatches = Array.from(content.matchAll(imageRegex));
-  imageMatches.forEach((match) => {
-    const imageName = match[5] || "";
+  // Extrair Imagens
+  for (const match of content.matchAll(imageRegex)) {
     variables.push({
       id: generateUniqueId(),
-      x: parseInt(match[2], 10),
-      y: parseInt(match[3], 10),
-      originalValue: imageName,
-      value: imageName,
-      index: globalIndex++,
+      x: parseInt(match[1], 10),
+      y: parseInt(match[2], 10),
+      originalValue: match[3],
+      value: match[3],
+      index: 0,
       type: 'image',
       isChecked: false,
-      imageName,
+      imageName: match[3],
     });
-  });
+  }
 
+  // Extrair Barcodes
   const barcodePositions = new Set<string>();
-  const barcodeMatches = Array.from(content.matchAll(barcodeRegex));
-  barcodeMatches.forEach((match) => {
+  for (const match of content.matchAll(barcodeRegex)) {
     const x = parseInt(match[1], 10);
     const y = parseInt(match[2], 10);
     barcodePositions.add(`${x},${y}`);
     variables.push({
       id: generateUniqueId(),
-      x,
-      y,
-      originalValue: match[4] || "",
-      value: match[4] || "",
-      index: globalIndex++,
+      x, y,
+      originalValue: match[4],
+      value: match[4],
+      index: 0,
       type: 'barcode',
     });
-  });
+  }
 
-  const allFdMatches = Array.from(content.matchAll(allFdRegex));
-  allFdMatches.forEach((match) => {
+  // Extrair Textos (evitando posições de barcode)
+  for (const match of content.matchAll(textRegex)) {
     const x = parseInt(match[1], 10);
     const y = parseInt(match[2], 10);
     if (!barcodePositions.has(`${x},${y}`)) {
       variables.push({
         id: generateUniqueId(),
-        x,
-        y,
-        originalValue: match[3] || "",
-        value: match[3] || "",
-        index: globalIndex++,
+        x, y,
+        originalValue: match[3],
+        value: match[3],
+        index: 0,
         type: 'text',
       });
     }
-  });
+  }
 
+  // Ordenar por tipo e depois por posição para facilitar a edição no painel
   const sorted = [
-    ...variables.filter(v => v.type === 'barcode').sort(sortByPosition),
-    ...variables.filter(v => v.type === 'image').sort(sortByPosition),
-    ...variables.filter(v => v.type === 'text').sort(sortByPosition)
+    ...variables.filter(v => v.type === 'barcode'),
+    ...variables.filter(v => v.type === 'image'),
+    ...variables.filter(v => v.type === 'text')
   ];
+
   sorted.forEach((v, i) => v.index = i);
   return sorted;
 };
@@ -235,38 +229,26 @@ const LabelOverlay: React.FC<LabelOverlayProps> = ({ variables, activeVariableId
 const VariableItem: React.FC<{
   variable: Variable; index: number; isActive: boolean; value: string;
   onFocus: () => void; onChange: (value: string) => void;
-  onCoordChange: (coord: 'x' | 'y', val: number) => void; // Melhoria solicitada
+  onCoordChange: (coord: 'x' | 'y', val: number) => void;
   onCheckboxChange: (checked: boolean) => void; onSelect: (value: string) => void;
   setRef: (node: HTMLDivElement | null) => void;
 }> = ({ variable, index, isActive, value, onFocus, onChange, onCoordChange, onCheckboxChange, onSelect, setRef }) => {
   const isImg = variable.type === 'image', isBc = variable.type === 'barcode';
   return (
     <div ref={setRef} onClick={onFocus} className={`flex flex-col space-y-1 p-3 rounded-lg border cursor-pointer transition-colors ${isActive ? "border-yellow-600 bg-yellow-700/30" : "border-gray-700 bg-gray-800 hover:border-gray-600"}`}>
-      <label className="text-xs font-bold text-yellow-500 flex justify-between items-center">
-        <span>{isImg ? '🖼️ IMAGEM' : isBc ? '📊 CÓDIGO DE BARRAS' : '📝 TEXTO'} {index + 1}</span>
-
-        {/* Melhora solicitada: X e Y editáveis */}
+      <div className="text-xs font-bold text-yellow-500 flex justify-between items-center">
+        <span>{isImg ? '🖼️ IMAGEM' : isBc ? '📊 BARRAS' : '📝 TEXTO'} {index + 1}</span>
         <div className="flex gap-2 items-center">
           <div className="flex items-center gap-1">
             <span className="text-[9px] text-gray-500">X:</span>
-            <input
-              type="text"
-              value={variable.x}
-              onChange={e => onCoordChange('x', parseInt(e.target.value) || 0)}
-              className={`w-15 py-1 text-center bg-gray-900 border border-gray-700 rounded text-white text-[10px] px-1 focus:border-yellow-600 outline-none`}
-            />
+            <input type="text" value={variable.x} onChange={e => onCoordChange('x', parseInt(e.target.value) || 0)} className="w-12 py-1 text-center bg-gray-900 border border-gray-700 rounded text-white text-[10px] outline-none" />
           </div>
           <div className="flex items-center gap-1">
             <span className="text-[9px] text-gray-500">Y:</span>
-            <input
-              type="text"
-              value={variable.y}
-              onChange={e => onCoordChange('y', parseInt(e.target.value) || 0)}
-              className={`w-15 py-1 text-center bg-gray-900 border border-gray-700 rounded text-white text-[10px] px-1 focus:border-yellow-600 outline-none`}
-            />
+            <input type="text" value={variable.y} onChange={e => onCoordChange('y', parseInt(e.target.value) || 0)} className="w-12 py-1 text-center bg-gray-900 border border-gray-700 rounded text-white text-[10px] outline-none" />
           </div>
         </div>
-      </label>
+      </div>
       <div className="flex justify-between items-center gap-3">
         <div className="flex items-center gap-2 w-full">
           {isImg && <input type="checkbox" checked={variable.isChecked} onChange={e => onCheckboxChange(e.target.checked)} onClick={e => e.stopPropagation()} className="w-5 h-5 accent-yellow-500" />}
@@ -337,12 +319,6 @@ export default function Preview() {
   const variableRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const variableMaps = useMemo(() => ({
-    imageMap: new Map(variables.filter(v => v.type === 'image').map(v => [v.originalValue, v])),
-    barcodeMap: new Map(variables.filter(v => v.type === 'barcode').map(v => [v.originalValue, v])),
-    textMap: new Map(variables.filter(v => v.type === 'text').map(v => [v.originalValue, v]))
-  }), [variables]);
-
   const processFile = useCallback((file: File) => {
     setFileName(file.name);
     const reader = new FileReader();
@@ -365,53 +341,45 @@ export default function Preview() {
     if (file) processFile(file);
   }, [processFile]);
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) processFile(file);
-  };
-
+  // Lógica de Geração Baseada em POSIÇÃO (Ordem de ocorrência no ZPL)
   const generateZplWithCurrentValues = useCallback(() => {
     if (!originalContent || variables.length === 0) return "";
     let result = originalContent;
-    const { imageMap, barcodeMap, textMap } = variableMaps;
 
-    // Atualiza Imagens: trocado x, y por _ e _
-    result = result.replace(/\^FO(\d+),(\d+)(.*?\^XG)([A-Z0-9]+),/gs, (m, _, __, mid, name) => {
-      const v = imageMap.get(name);
+    const barcodes = variables.filter(v => v.type === 'barcode');
+    const images = variables.filter(v => v.type === 'image');
+    const texts = variables.filter(v => v.type === 'text');
+
+    let bcIdx = 0, imgIdx = 0, txtIdx = 0;
+    const barcodePos = new Set<string>();
+
+    // 1. Atualiza Imagens
+    result = result.replace(/\^FO(\d+),(\d+)(.*?\^XG)([A-Z0-9]+),/gs, (m, _, __, mid) => {
+      const v = images[imgIdx++];
       return v ? `^FO${v.x},${v.y}${mid}${v.value},` : m;
     });
 
-    // Atualiza Barcodes: trocado x, y por _ e _
-    result = result.replace(/\^FT(\d+),(\d+)(\^BE[A-Z],\d+,[A-Z],[A-Z])(?:\^FH)?\^FD(.*?)\^FS/gs, (m, _, __, prefix, fdValue) => {
-      const v = barcodeMap.get(fdValue);
-      return v ? `^FT${v.x},${v.y}${prefix}^FH^FD${convertToCP850(v.value)}^FS` : m;
+    // 2. Atualiza Barcodes
+    result = result.replace(/\^FT(\d+),(\d+)(\^BE[A-Z],\d+,[A-Z],[A-Z])(?:\^FH)?\^FD(.*?)\^FS/gs, (m, x, y, prefix) => {
+      const v = barcodes[bcIdx++];
+      if (v) {
+        barcodePos.add(`${x},${y}`);
+        return `^FT${v.x},${v.y}${prefix}^FH^FD${convertToCP850(v.value)}^FS`;
+      }
+      return m;
     });
 
-    const barcodePos = new Set<string>();
-    result.replace(/\^FT(\d+),(\d+)\^BE[A-Z].*?\^FD.*?\^FS/gs, (m, x, y) => { barcodePos.add(`${x},${y}`); return m; });
-
-    // Atualiza Textos: trocado x, y por _ e _
-    result = result.replace(/\^FT(\d+),(\d+)(.*?)(\^FD)(.*?)(\^FS)/gs, (m, _, __, middle, ___, fdValue, fsPart) => {
-      if (barcodePos.has(`${_},${__}`)) return m;
-      const v = textMap.get(fdValue);
+    // 3. Atualiza Textos
+    result = result.replace(/\^FT(\d+),(\d+)(.*?)(\^FD)(.*?)(\^FS)/gs, (m, x, y, middle, _, __, fsPart) => {
+      if (barcodePos.has(`${x},${y}`)) return m;
+      const v = texts[txtIdx++];
       if (!v) return m;
       const hasFH = middle.includes('^FH');
       return `^FT${v.x},${v.y}${hasFH ? middle : middle + '^FH'}^FD${convertToCP850(v.value)}${fsPart}`;
     });
 
     return result;
-  }, [originalContent, variables, variableMaps]);
+  }, [originalContent, variables]);
 
   const renderLabelPreview = useCallback(async () => {
     const zpl = generateZplWithCurrentValues();
@@ -466,17 +434,16 @@ export default function Preview() {
 
   return (
     <div className="w-full mb-12">
-      <h2 className="text-xl font-bold text-gray-200 px-2 mb-2">Pré-visualização</h2>
+      <h2 className="text-xl font-bold text-gray-200 px-2 mb-2">Editor de ZPL</h2>
       <div className="flex flex-col gap-8">
         <div className="flex gap-6 space-y-6">
           <div className="w-full flex justify-between flex-col gap-5">
             <div
               ref={containerRef}
-              className={`min-h-[400px] flex items-center justify-center border-2 rounded-xl shadow-xl overflow-hidden relative transition-all ${isDragging ? "border-yellow-500 bg-gray-700/50 scale-[1.01]" : "border-gray-600 bg-gray-800"
-                }`}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
+              className={`min-h-[400px] flex items-center justify-center border-2 rounded-xl shadow-xl overflow-hidden relative transition-all ${isDragging ? "border-yellow-500 bg-gray-700/50 scale-[1.01]" : "border-gray-600 bg-gray-800"}`}
+              onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={e => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files?.[0]; if (file) processFile(file); }}
             >
               {isLoading ? (
                 <SyncLoader color="#f0b100" />
@@ -486,26 +453,12 @@ export default function Preview() {
                 <div className="w-full h-[700px] flex items-center justify-center relative overflow-hidden">
                   <ImageZoom active={!!previewUrl} targetRef={containerRef} />
                   <div className="relative inline-block border border-gray-600 shadow-2xl">
-                    <img
-                      ref={imgRef}
-                      src={previewUrl}
-                      onLoad={updateDimensions}
-                      alt="Etiqueta"
-                      className="block max-w-full max-h-[680px]"
-                    />
-                    <LabelOverlay
-                      variables={variables}
-                      activeVariableId={activeVariableId}
-                      imageRect={imageRect}
-                      config={config}
-                    />
+                    <img ref={imgRef} src={previewUrl} onLoad={updateDimensions} alt="Etiqueta" className="block max-w-full max-h-[680px]" />
+                    <LabelOverlay variables={variables} activeVariableId={activeVariableId} imageRect={imageRect} config={config} />
                   </div>
                 </div>
               ) : (
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full h-full flex flex-col items-center justify-center cursor-pointer p-6 text-gray-500 italic text-center"
-                >
+                <div onClick={() => fileInputRef.current?.click()} className="w-full h-full flex flex-col items-center justify-center cursor-pointer p-6 text-gray-500 italic text-center">
                   <p>{isDragging ? "Solte para carregar" : "Clique ou arraste um arquivo ZPL aqui."}</p>
                 </div>
               )}
@@ -547,21 +500,11 @@ export default function Preview() {
             </Cards>
 
             <Cards title="Upload Arquivo" seach={fileName}>
-              <label
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                className={`h-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded cursor-pointer transition-colors ${isDragging ? "border-white bg-yellow-600/20" : "border-yellow-400 hover:bg-gray-800"
-                  }`}
-              >
-                <span className="text-yellow-400 font-semibold">{isDragging ? "Pode soltar!" : "Carregar Arquivo"}</span>
+              <label className={`h-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded cursor-pointer transition-colors ${isDragging ? "border-white bg-yellow-600/20" : "border-yellow-400 hover:bg-gray-800"}`}>
+                <span className="text-yellow-400 font-semibold">Carregar Arquivo</span>
                 <input ref={fileInputRef} type="file" accept=".zpl,.prn,.txt" onChange={handleFileChange} className="hidden" />
               </label>
-              <button
-                onClick={handleSubmit}
-                disabled={!originalContent}
-                className="mt-4 w-full py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold rounded cursor-pointer"
-              >
+              <button onClick={handleSubmit} disabled={!originalContent} className="mt-4 w-full py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold rounded cursor-pointer">
                 Baixar Modificado
               </button>
             </Cards>
