@@ -235,15 +235,37 @@ const LabelOverlay: React.FC<LabelOverlayProps> = ({ variables, activeVariableId
 const VariableItem: React.FC<{
   variable: Variable; index: number; isActive: boolean; value: string;
   onFocus: () => void; onChange: (value: string) => void;
+  onCoordChange: (coord: 'x' | 'y', val: number) => void; // Melhoria solicitada
   onCheckboxChange: (checked: boolean) => void; onSelect: (value: string) => void;
   setRef: (node: HTMLDivElement | null) => void;
-}> = ({ variable, index, isActive, value, onFocus, onChange, onCheckboxChange, onSelect, setRef }) => {
+}> = ({ variable, index, isActive, value, onFocus, onChange, onCoordChange, onCheckboxChange, onSelect, setRef }) => {
   const isImg = variable.type === 'image', isBc = variable.type === 'barcode';
   return (
     <div ref={setRef} onClick={onFocus} className={`flex flex-col space-y-1 p-3 rounded-lg border cursor-pointer transition-colors ${isActive ? "border-yellow-600 bg-yellow-700/30" : "border-gray-700 bg-gray-800 hover:border-gray-600"}`}>
-      <label className="text-xs font-bold text-yellow-500 flex justify-between">
+      <label className="text-xs font-bold text-yellow-500 flex justify-between items-center">
         <span>{isImg ? '🖼️ IMAGEM' : isBc ? '📊 CÓDIGO DE BARRAS' : '📝 TEXTO'} {index + 1}</span>
-        <span className="text-[9px] text-gray-500">X: {variable.x} | Y: {variable.y}</span>
+
+        {/* Melhora solicitada: X e Y editáveis */}
+        <div className="flex gap-2 items-center">
+          <div className="flex items-center gap-1">
+            <span className="text-[9px] text-gray-500">X:</span>
+            <input
+              type="text"
+              value={variable.x}
+              onChange={e => onCoordChange('x', parseInt(e.target.value) || 0)}
+              className={`w-15 py-1 bg-gray-900 border border-gray-700 rounded text-white text-[10px] px-1 focus:border-yellow-600 outline-none`}
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[9px] text-gray-500">Y:</span>
+            <input
+              type="text"
+              value={variable.y}
+              onChange={e => onCoordChange('y', parseInt(e.target.value) || 0)}
+              className={`w-15 py-1 bg-gray-900 border border-gray-700 rounded text-white text-[10px] px-1 focus:border-yellow-600 outline-none`}
+            />
+          </div>
+        </div>
       </label>
       <div className="flex justify-between items-center gap-3">
         <div className="flex items-center gap-2 w-full">
@@ -308,7 +330,7 @@ export default function Preview() {
   const [previewUrl, setPreviewUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false); // NOVO: Estado para drag and drop
+  const [isDragging, setIsDragging] = useState(false);
 
   const { imgRef, imageRect, updateDimensions } = useImageDimensions();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -321,7 +343,6 @@ export default function Preview() {
     textMap: new Map(variables.filter(v => v.type === 'text').map(v => [v.originalValue, v]))
   }), [variables]);
 
-  // Função centralizada para processar o arquivo (independente se veio de clique ou drop)
   const processFile = useCallback((file: File) => {
     setFileName(file.name);
     const reader = new FileReader();
@@ -344,7 +365,6 @@ export default function Preview() {
     if (file) processFile(file);
   }, [processFile]);
 
-  // Handlers para Drag and Drop
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -366,23 +386,28 @@ export default function Preview() {
     let result = originalContent;
     const { imageMap, barcodeMap, textMap } = variableMaps;
 
-    result = result.replace(/\^XG(.*?)(?=,)/gs, (m, cap) => imageMap.get(cap)?.value ? `^XG${imageMap.get(cap)!.value}` : m);
+    // Atualiza Imagens: trocado x, y por _ e _
+    result = result.replace(/\^FO(\d+),(\d+)(.*?\^XG)([A-Z0-9]+),/gs, (m, _, __, mid, name) => {
+      const v = imageMap.get(name);
+      return v ? `^FO${v.x},${v.y}${mid}${v.value},` : m;
+    });
 
-    result = result.replace(/(\^FT\d+,\d+\^BE[A-Z],\d+,[A-Z],[A-Z])(?:\^FH)?\^FD(.*?)\^FS/gs, (_, prefix, fdValue) => {
+    // Atualiza Barcodes: trocado x, y por _ e _
+    result = result.replace(/\^FT(\d+),(\d+)(\^BE[A-Z],\d+,[A-Z],[A-Z])(?:\^FH)?\^FD(.*?)\^FS/gs, (m, _, __, prefix, fdValue) => {
       const v = barcodeMap.get(fdValue);
-      const content = v ? convertToCP850(v.value) : fdValue;
-      return `${prefix}^FH^FD${content}^FS`;
+      return v ? `^FT${v.x},${v.y}${prefix}^FH^FD${convertToCP850(v.value)}^FS` : m;
     });
 
     const barcodePos = new Set<string>();
     result.replace(/\^FT(\d+),(\d+)\^BE[A-Z].*?\^FD.*?\^FS/gs, (m, x, y) => { barcodePos.add(`${x},${y}`); return m; });
 
-    result = result.replace(/\^FT(\d+),(\d+)(.*?)(\^FD)(.*?)(\^FS)/gs, (m, x, y, middle, _, fdValue, fsPart) => {
-      if (barcodePos.has(`${x},${y}`)) return m;
+    // Atualiza Textos: trocado x, y por _ e _
+    result = result.replace(/\^FT(\d+),(\d+)(.*?)(\^FD)(.*?)(\^FS)/gs, (m, _, __, middle, ___, fdValue, fsPart) => {
+      if (barcodePos.has(`${_},${__}`)) return m;
       const v = textMap.get(fdValue);
-      const content = v ? convertToCP850(v.value) : fdValue;
+      if (!v) return m;
       const hasFH = middle.includes('^FH');
-      return `^FT${x},${y}${hasFH ? middle : middle + '^FH'}^FD${content}${fsPart}`;
+      return `^FT${v.x},${v.y}${hasFH ? middle : middle + '^FH'}^FD${convertToCP850(v.value)}${fsPart}`;
     });
 
     return result;
@@ -420,6 +445,10 @@ export default function Preview() {
   const handleVariableChange = (id: string, value: string) => {
     setVariableValues(p => ({ ...p, [id]: value }));
     setVariables(p => p.map(v => v.id === id ? { ...v, value } : v));
+  };
+
+  const handleCoordChange = (id: string, coord: 'x' | 'y', val: number) => {
+    setVariables(prev => prev.map(v => v.id === id ? { ...v, [coord]: val } : v));
   };
 
   const handleSubmit = useCallback(() => {
@@ -507,6 +536,7 @@ export default function Preview() {
                       value={variableValues[v.id] || ""}
                       onFocus={() => setActiveVariableId(v.id)}
                       onChange={val => handleVariableChange(v.id, val)}
+                      onCoordChange={(coord, val) => handleCoordChange(v.id, coord, val)}
                       onCheckboxChange={c => setVariables(prev => prev.map(item => item.id === v.id ? { ...item, isChecked: c } : item))}
                       onSelect={val => handleVariableChange(v.id, val)}
                       setRef={node => node && variableRefs.current.set(v.id, node)}
