@@ -253,7 +253,7 @@ const VariableItem: React.FC<{
               type="text"
               value={variable.x}
               onChange={e => onCoordChange('x', parseInt(e.target.value) || 0)}
-              className={`w-15 py-1 bg-gray-900 border border-gray-700 rounded text-white text-[10px] px-1 focus:border-yellow-600 outline-none`}
+              className={`w-15 py-1 text-center bg-gray-900 border border-gray-700 rounded text-white text-[10px] px-1 focus:border-yellow-600 outline-none`}
             />
           </div>
           <div className="flex items-center gap-1">
@@ -262,7 +262,7 @@ const VariableItem: React.FC<{
               type="text"
               value={variable.y}
               onChange={e => onCoordChange('y', parseInt(e.target.value) || 0)}
-              className={`w-15 py-1 bg-gray-900 border border-gray-700 rounded text-white text-[10px] px-1 focus:border-yellow-600 outline-none`}
+              className={`w-15 py-1 text-center bg-gray-900 border border-gray-700 rounded text-white text-[10px] px-1 focus:border-yellow-600 outline-none`}
             />
           </div>
         </div>
