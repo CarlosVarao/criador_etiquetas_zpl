@@ -30,6 +30,7 @@ interface LabelOverlayProps {
   activeVariableId: string | null;
   imageRect: DOMRect | null;
   config: LabelConfig;
+  isHovering: boolean;
 }
 
 // ============================================================================
@@ -38,6 +39,7 @@ interface LabelOverlayProps {
 
 const DEBOUNCE_DELAY = 500;
 const DEFAULT_CONFIG: LabelConfig = { dpmm: 8, width: 5, height: 6 };
+const ZOOM_LEVEL = 2;
 
 const cp850Map: Record<string, string> = {
   'á': '_a0', 'é': '_82', 'í': '_a1', 'ó': '_a2', 'ú': '_a3',
@@ -82,12 +84,8 @@ const getImageDefinitionByName = (imageDefinitions: string, imageName: string): 
 
 const extractVariables = (content: string): Variable[] => {
   const variables: Variable[] = [];
-
-  // Aceita qualquer caractere exceto vírgula após o ^XG
   const imageRegex = /\^FO(\d+),(\d+).*?\^XG([^,]+),/gs;
-  // Regex para Barcodes (Suporta ^BE e ^BC)
   const barcodeRegex = /\^FT(\d+),(\d+)\^(?:BE|BC)[A-Z],.*?\^FD(.*?)\^FS/gs;
-  // Regex para Textos (Evita campos que contenham comandos de barcode)
   const textRegex = /\^FT(\d+),(\d+)(?:(?!\^(?:BE|BC)).)*?\^FD(.*?)\^FS/gs;
 
   for (const match of content.matchAll(imageRegex)) {
@@ -148,8 +146,6 @@ const cleanZplForDownload = (zpl: string, variables: Variable[], imageDefinition
   cleaned = cleaned.replace(/\^FD(.*?)\^FS/gs, (match) => match.replace(/_5f/g, "_"));
   cleaned = cleaned.replace(/\^XA\s*\^ID.*?\^FS\s*\^XZ\s*/gs, "");
   cleaned = cleaned.replace(/~DG[\s\S]*?\^XA/gs, "^XA");
-
-  // Modifica apenas o ^BE para Y (EAN-13)
   cleaned = cleaned.replace(/(\^BE[A-Z],\d+,)N(,[A-Z])/g, '$1Y$2');
 
   const checkedImages = variables.filter(v => v.type === 'image' && v.isChecked && v.imageName);
@@ -184,7 +180,9 @@ const useDebounce = (callback: (...args: any[]) => void, delay: number) => {
 const useImageDimensions = () => {
   const [imageRect, setImageRect] = useState<DOMRect | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
-  const updateDimensions = useCallback(() => { if (imgRef.current) setImageRect(imgRef.current.getBoundingClientRect()); }, []);
+  const updateDimensions = useCallback(() => {
+    if (imgRef.current) setImageRect(imgRef.current.getBoundingClientRect());
+  }, []);
   useEffect(() => {
     window.addEventListener('resize', updateDimensions);
     return () => window.removeEventListener('resize', updateDimensions);
@@ -199,16 +197,30 @@ const useImageDimensions = () => {
 const LabelOverlay: React.FC<LabelOverlayProps> = ({ variables, activeVariableId, imageRect, config }) => {
   const activeVar = useMemo(() => variables.find(v => v.id === activeVariableId), [variables, activeVariableId]);
   if (!activeVariableId || !imageRect || !activeVar) return null;
+
   const dpi = config.dpmm * 25.4;
   const scaleX = imageRect.width / (config.width * dpi);
   const scaleY = imageRect.height / (config.height * dpi);
-  let pos = { left: activeVar.x * scaleX, top: activeVar.y * scaleY };
-  if (activeVar.type === 'barcode') { pos.left -= 18 * scaleX; pos.top -= 50 * scaleY; }
-  else if (activeVar.type === 'text') { pos.left -= 20 * scaleX; pos.top -= 20 * scaleY; }
-  else { pos.top += 75 * scaleY; }
+
+  let left = activeVar.x * scaleX;
+  let top = activeVar.y * scaleY;
+
+  if (activeVar.type === 'barcode') { left -= 18 * scaleX; top -= 50 * scaleY; }
+  else if (activeVar.type === 'text') { left -= 20 * scaleX; top -= 20 * scaleY; }
+  else { top += 75 * scaleY; }
+
   return (
-    <div className="absolute z-50 pointer-events-none flex items-center justify-center font-bold text-black" style={{ ...pos }}>
-      <span className="bg-[red] text-white px-1 text-[10px] shadow">X</span>
+    <div
+      className="absolute z-50 pointer-events-none flex items-center justify-center font-bold text-black"
+      style={{
+        left: 0,
+        top: 0,
+        transform: `translate3d(${left}px, ${top}px, 0) scale(1)`,
+        transformOrigin: 'var(--zoom-x, 50%) var(--zoom-y, 50%)',
+        willChange: 'transform'
+      }}
+    >
+      <span className="bg-[red] text-white px-0.5 text-[9px] shadow">X</span>
     </div>
   );
 };
@@ -221,7 +233,6 @@ const VariableItem: React.FC<{
   setRef: (node: HTMLDivElement | null) => void;
 }> = ({ variable, index, isActive, value, onFocus, onChange, onCoordChange, onCheckboxChange, onSelect, setRef }) => {
   const isImg = variable.type === 'image', isBc = variable.type === 'barcode';
-  // Função para concatenar ao invés de substituir
   const handleDropdownSelect = (selectedValue: string) => {
     const newValue = value + selectedValue;
     onSelect(isImg || isBc ? newValue.toUpperCase() : newValue);
@@ -252,42 +263,6 @@ const VariableItem: React.FC<{
   );
 };
 
-const ImageZoom: React.FC<{ active: boolean; targetRef: React.RefObject<HTMLDivElement | null> }> = ({ active, targetRef }) => {
-  const [zoomStyle, setZoomStyle] = useState<React.CSSProperties>({ display: "none" });
-  if (!active) return null;
-  return (
-    <div
-      className="absolute inset-0 z-80 cursor-crosshair"
-      onMouseMove={(e) => {
-        if (!targetRef.current) return;
-        const rect = targetRef.current.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 100;
-        const y = ((e.clientY - rect.top) / rect.height) * 100;
-        setZoomStyle({
-          display: "block",
-          position: "fixed",
-          left: e.clientX + 25,
-          top: e.clientY - 125,
-          width: 250,
-          height: 250,
-          backgroundColor: "#111827",
-          backgroundImage: `url(${targetRef.current.querySelector('img')?.src})`,
-          backgroundSize: `${rect.width * 2}px ${rect.height * 2}px`,
-          backgroundPosition: `${x}% ${y}%`,
-          pointerEvents: "none",
-          borderRadius: "12px",
-          border: "2px solid #f0b100",
-          boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.5)",
-          zIndex: 999
-        });
-      }}
-      onMouseLeave={() => setZoomStyle({ display: "none" })}
-    >
-      <div style={zoomStyle} />
-    </div>
-  );
-};
-
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
@@ -305,11 +280,23 @@ export default function Preview() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
 
   const { imgRef, imageRect, updateDimensions } = useImageDimensions();
+  const zoomContainerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const variableRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!zoomContainerRef.current) return;
+    const rect = zoomContainerRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+    zoomContainerRef.current.style.setProperty('--zoom-x', `${x}%`);
+    zoomContainerRef.current.style.setProperty('--zoom-y', `${y}%`);
+  };
 
   const processFile = useCallback((file: File) => {
     setFileName(file.name);
@@ -336,7 +323,6 @@ export default function Preview() {
   const generateZplWithCurrentValues = useCallback(() => {
     if (!originalContent || variables.length === 0) return "";
     let result = originalContent;
-
     const barcodes = variables.filter(v => v.type === 'barcode');
     const images = variables.filter(v => v.type === 'image');
     const texts = variables.filter(v => v.type === 'text');
@@ -344,14 +330,11 @@ export default function Preview() {
     let bcIdx = 0, imgIdx = 0, txtIdx = 0;
     const barcodePos = new Set<string>();
 
-    // Procure por esta parte dentro da generateZplWithCurrentValues:
     result = result.replace(/\^FO(\d+),(\d+)(.*?\^XG)([^,]+),/gs, (m, _, __, mid) => {
       const v = images[imgIdx++];
       return v ? `^FO${v.x},${v.y}${mid}${v.value},` : m;
     });
 
-
-    // 2. Atualiza Barcodes (Suporta ^BE e ^BC)
     result = result.replace(/\^FT(\d+),(\d+)(\^(?:BE|BC)[A-Z],.*?\^FD)(.*?)(\^FS)/gs, (m, x, y, prefix, _, fsPart) => {
       const v = barcodes[bcIdx++];
       if (v) {
@@ -361,7 +344,6 @@ export default function Preview() {
       return m;
     });
 
-    // 3. Atualiza Textos (Usando _ para o que não é usado)
     result = result.replace(/\^FT(\d+),(\d+)(.*?)(\^FD)(.*?)(\^FS)/gs, (m, x, y, middle, _, __, fsPart) => {
       if (barcodePos.has(`${x},${y}`)) return m;
       const v = texts[txtIdx++];
@@ -433,12 +415,41 @@ export default function Preview() {
               onDragLeave={() => setIsDragging(false)}
               onDrop={e => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files?.[0]; if (file) processFile(file); }}
             >
-              {isLoading ? <SyncLoader color="#f0b100" /> : error && !previewUrl ? <p className="text-red-400">{error}</p> : previewUrl ? (
-                <div className="w-full h-[700px] flex items-center justify-center relative overflow-hidden">
-                  <ImageZoom active={!!previewUrl} targetRef={containerRef} />
-                  <div className="relative inline-block border border-gray-600 shadow-2xl">
-                    <img ref={imgRef} src={previewUrl} onLoad={updateDimensions} alt="Etiqueta" className="block max-w-full max-h-[680px]" />
-                    <LabelOverlay variables={variables} activeVariableId={activeVariableId} imageRect={imageRect} config={config} />
+              {isLoading ? (
+                <SyncLoader color="#f0b100" />
+              ) : error && !previewUrl ? (
+                <p className="text-red-400">{error}</p>
+              ) : previewUrl ? (
+                <div
+                  className="w-full h-[700px] flex items-center justify-center relative overflow-hidden cursor-crosshair"
+                  onMouseEnter={() => setIsHovering(true)}
+                  onMouseLeave={() => setIsHovering(false)}
+                  onMouseMove={handleMouseMove}
+                >
+                  <div
+                    ref={zoomContainerRef}
+                    className="relative inline-block border border-gray-600 shadow-2xl"
+                    style={{
+                      transformOrigin: 'var(--zoom-x, 50%) var(--zoom-y, 50%)',
+                      transform: isHovering ? `scale(${ZOOM_LEVEL})` : 'scale(1)',
+                      transition: isHovering ? 'transform 0.2s ease-out' : 'transform 0.3s ease-in-out',
+                      willChange: 'transform'
+                    }}
+                  >
+                    <img
+                      ref={imgRef}
+                      src={previewUrl}
+                      onLoad={updateDimensions}
+                      alt="Etiqueta"
+                      className="block max-w-full max-h-[680px] pointer-events-none select-none"
+                    />
+                    <LabelOverlay
+                      variables={variables}
+                      activeVariableId={activeVariableId}
+                      imageRect={imageRect}
+                      config={config}
+                      isHovering={isHovering}
+                    />
                   </div>
                 </div>
               ) : (
