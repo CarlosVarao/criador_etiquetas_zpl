@@ -221,6 +221,11 @@ const VariableItem: React.FC<{
   setRef: (node: HTMLDivElement | null) => void;
 }> = ({ variable, index, isActive, value, onFocus, onChange, onCoordChange, onCheckboxChange, onSelect, setRef }) => {
   const isImg = variable.type === 'image', isBc = variable.type === 'barcode';
+  // Função para concatenar ao invés de substituir
+  const handleDropdownSelect = (selectedValue: string) => {
+    const newValue = value + selectedValue;
+    onSelect(isImg || isBc ? newValue.toUpperCase() : newValue);
+  };
   return (
     <div ref={setRef} onClick={onFocus} className={`flex flex-col space-y-1 p-3 rounded-lg border cursor-pointer transition-colors ${isActive ? "border-yellow-600 bg-yellow-700/30" : "border-gray-700 bg-gray-800 hover:border-gray-600"}`}>
       <div className="text-xs font-bold text-yellow-500 flex justify-between items-center">
@@ -241,7 +246,7 @@ const VariableItem: React.FC<{
           {isImg && <input type="checkbox" checked={variable.isChecked} onChange={e => onCheckboxChange(e.target.checked)} onClick={e => e.stopPropagation()} className="w-5 h-5 accent-yellow-500" />}
           <input type="text" value={value} onChange={e => onChange(isImg || isBc ? e.target.value.toUpperCase() : e.target.value)} onFocus={onFocus} onClick={e => e.stopPropagation()} className="h-10 px-2 w-full bg-gray-900 border text-[11px] border-gray-600 rounded text-white focus:border-yellow-600 outline-none" />
         </div>
-        <DropdownSearch onSelect={onSelect} />
+        <DropdownSearch onSelect={handleDropdownSelect} />
       </div>
     </div>
   );
