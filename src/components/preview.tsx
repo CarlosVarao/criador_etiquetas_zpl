@@ -495,11 +495,11 @@ export default function Preview() {
             </Cards>
 
             <Cards title="Upload Arquivo" seach={fileName}>
-              <label className={`h-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded cursor-pointer transition-colors ${isDragging ? "border-white bg-yellow-600/20" : "border-yellow-400 hover:bg-gray-800"}`}>
-                <span className="text-yellow-400 font-semibold">Carregar Arquivo</span>
+              <label className={`h-full flex flex-col items-center justify-center p-3 border-2 border-dashed rounded cursor-pointer transition-colors ${isDragging ? "border-white bg-yellow-600/20" : "border-yellow-400 hover:bg-gray-800"}`}>
+                <span className="text-yellow-400 font-semibold text-sm">Carregar Arquivo</span>
                 <input ref={fileInputRef} type="file" accept=".zpl,.prn,.txt" onChange={handleFileChange} className="hidden" />
               </label>
-              <button onClick={handleSubmit} disabled={!originalContent} className="mt-4 w-full py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold rounded cursor-pointer">
+              <button onClick={handleSubmit} disabled={!originalContent} className="mt-4 w-full py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold rounded cursor-pointer text-sm">
                 Baixar Modificado
               </button>
             </Cards>
