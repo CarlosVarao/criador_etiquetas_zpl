@@ -38,7 +38,7 @@ interface LabelOverlayProps {
 // ============================================================================
 
 const DEBOUNCE_DELAY = 500;
-const DEFAULT_CONFIG: LabelConfig = { dpmm: 8, width: 5, height: 6 };
+const DEFAULT_CONFIG: LabelConfig = { dpmm: 8, width: 7, height: 8 };
 const ZOOM_LEVEL = 2;
 
 const cp850Map: Record<string, string> = {
