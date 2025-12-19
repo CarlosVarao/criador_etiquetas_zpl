@@ -148,5 +148,15 @@
     "label": "EAN",
     "value": "##EAN##",
     "imagem": "EAN.png"
+  },
+  {
+    "label": "TEXTO",
+    "value": "##TEXTO##",
+    "imagem": "TEXTO.png"
+  },
+  {
+    "label": "TEXTO PRODUÇÃO",
+    "value": "##TEXTO_PRODUCAO##",
+    "imagem": "TEXTO_PRODUCAO.png"
   }
 ]
