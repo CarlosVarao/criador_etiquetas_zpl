@@ -83,8 +83,8 @@ const getImageDefinitionByName = (imageDefinitions: string, imageName: string): 
 const extractVariables = (content: string): Variable[] => {
   const variables: Variable[] = [];
 
-  // Regex para Imagens
-  const imageRegex = /\^FO(\d+),(\d+).*?\^XG([A-Z0-9]+),/gs;
+  // Aceita qualquer caractere exceto vírgula após o ^XG
+  const imageRegex = /\^FO(\d+),(\d+).*?\^XG([^,]+),/gs;
   // Regex para Barcodes (Suporta ^BE e ^BC)
   const barcodeRegex = /\^FT(\d+),(\d+)\^(?:BE|BC)[A-Z],.*?\^FD(.*?)\^FS/gs;
   // Regex para Textos (Evita campos que contenham comandos de barcode)
@@ -339,11 +339,12 @@ export default function Preview() {
     let bcIdx = 0, imgIdx = 0, txtIdx = 0;
     const barcodePos = new Set<string>();
 
-    // 1. Atualiza Imagens
-    result = result.replace(/\^FO(\d+),(\d+)(.*?\^XG)([A-Z0-9]+),/gs, (m, _, __, mid) => {
+    // Procure por esta parte dentro da generateZplWithCurrentValues:
+    result = result.replace(/\^FO(\d+),(\d+)(.*?\^XG)([^,]+),/gs, (m, _, __, mid) => {
       const v = images[imgIdx++];
       return v ? `^FO${v.x},${v.y}${mid}${v.value},` : m;
     });
+
 
     // 2. Atualiza Barcodes (Suporta ^BE e ^BC)
     result = result.replace(/\^FT(\d+),(\d+)(\^(?:BE|BC)[A-Z],.*?\^FD)(.*?)(\^FS)/gs, (m, x, y, prefix, _, fsPart) => {
