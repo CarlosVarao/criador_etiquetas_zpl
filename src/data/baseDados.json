@@ -158,5 +158,10 @@
     "label": "TEXTO PRODUÇÃO",
     "value": "##TEXTO_PRODUCAO##",
     "imagem": "TEXTO_PRODUCAO.png"
+  },
+  {
+    "label": "TEXTO PRODUÇÃO",
+    "value": "##TEXTO_PRODUCAO##",
+    "imagem": "TEXTO_PRODUCAO.png"
   }
 ]
