@@ -120,7 +120,7 @@ export default function CardCompiladorImg() {
     <div className="w-full max-w-4xl mx-auto px-4 select-none">
       <Cards
         title="Campilador de arquivos"
-        seach={
+        search={
           <>
             <div className="flex gap-1 items-center">
               <label htmlFor="comentarioLabel" className="text-gray-200">Comentário dentro do arquivo:</label>

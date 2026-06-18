@@ -135,9 +135,23 @@ const reorderPrnContent = (content: string): string => {
   const lines = content.split('\n');
   const mnyIndex = lines.findIndex(line => line.includes('^MNY'));
   if (mnyIndex === -1) return content;
+
+  const gbLines = lines.filter(line => /\^FO\d+,\d+\^GB/.test(line));
   const xgLines = lines.filter(line => line.includes('^XG'));
-  const otherLines = lines.filter((line, idx) => idx <= mnyIndex || !line.includes('^XG'));
-  return [...otherLines.slice(0, mnyIndex + 1), ...xgLines, ...otherLines.slice(mnyIndex + 1)].join('\n');
+
+  const otherLines = lines.filter((line, idx) => {
+    if (idx <= mnyIndex) return true;
+    if (/\^FO\d+,\d+\^GB/.test(line)) return false;
+    if (line.includes('^XG')) return false;
+    return true;
+  });
+
+  return [
+    ...otherLines.slice(0, mnyIndex + 1),
+    ...gbLines,
+    ...xgLines,
+    ...otherLines.slice(mnyIndex + 1)
+  ].join('\n');
 };
 
 const cleanZplForDownload = (zpl: string, variables: Variable[], imageDefinitions: string): string => {
@@ -147,6 +161,7 @@ const cleanZplForDownload = (zpl: string, variables: Variable[], imageDefinition
   cleaned = cleaned.replace(/\^XA\s*\^ID.*?\^FS\s*\^XZ\s*/gs, "");
   cleaned = cleaned.replace(/~DG[\s\S]*?\^XA/gs, "^XA");
   cleaned = cleaned.replace(/(\^BE[A-Z],\d+,)N(,[A-Z])/g, '$1Y$2');
+  cleaned = cleaned.replace(/.*\^PRB\^FS.*\n?/g, '');
 
   const checkedImages = variables.filter(v => v.type === 'image' && v.isChecked && v.imageName);
   if (checkedImages.length > 0) {
@@ -159,7 +174,12 @@ const cleanZplForDownload = (zpl: string, variables: Variable[], imageDefinition
         imageDefsToInsert += definition.replace(/\^(XA|XZ)/g, '') + "\n";
       }
     });
-    cleaned = cleaned.replace(/(\^XA)/, `$1${imageDefsToInsert}`);
+    imageDefsToInsert += "\n";
+    if (/\^MNY\^FS/i.test(cleaned)) {
+      cleaned = cleaned.replace(/(\^MNY\^FS)/i, `$1${imageDefsToInsert}`);
+    } else {
+      cleaned = cleaned.replace(/(\^XA)/, `$1${imageDefsToInsert}`);
+    }
   }
   return cleaned;
 };
@@ -168,10 +188,10 @@ const cleanZplForDownload = (zpl: string, variables: Variable[], imageDefinition
 // CUSTOM HOOKS
 // ============================================================================
 
-const useDebounce = (callback: (...args: any[]) => void, delay: number) => {
+const useDebounce = <T extends unknown[]>(callback: (...args: T) => void, delay: number) => {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); }, []);
-  return useCallback((...args: any[]) => {
+  return useCallback((...args: T) => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => callback(...args), delay);
   }, [callback, delay]);
@@ -244,11 +264,11 @@ const VariableItem: React.FC<{
         <div className="flex gap-2 items-center">
           <div className="flex items-center gap-1">
             <span className="text-[9px] text-gray-500">X:</span>
-            <input type="text" value={variable.x} onChange={e => onCoordChange('x', parseInt(e.target.value) || 0)} className="w-15 py-1 text-center bg-gray-900 border border-gray-700 rounded text-white text-[10px] outline-none" />
+            <input type="number" value={variable.x} onChange={e => onCoordChange('x', parseInt(e.target.value) || 0)} className="w-15 py-1 text-center bg-gray-900 border border-gray-700 rounded text-white text-[10px] outline-none" />
           </div>
           <div className="flex items-center gap-1">
             <span className="text-[9px] text-gray-500">Y:</span>
-            <input type="text" value={variable.y} onChange={e => onCoordChange('y', parseInt(e.target.value) || 0)} className="w-15 py-1 text-center bg-gray-900 border border-gray-700 rounded text-white text-[10px] outline-none" />
+            <input type="number" value={variable.y} onChange={e => onCoordChange('y', parseInt(e.target.value) || 0)} className="w-15 py-1 text-center bg-gray-900 border border-gray-700 rounded text-white text-[10px] outline-none" />
           </div>
         </div>
       </div>
@@ -373,7 +393,8 @@ export default function Preview() {
         method: "POST", headers: { Accept: "image/png", "Content-Type": "application/x-www-form-urlencoded" }, body: previewZpl
       });
       if (!resp.ok) throw new Error(await resp.text());
-      setPreviewUrl(URL.createObjectURL(await resp.blob()));
+      const newUrl = URL.createObjectURL(await resp.blob());
+      setPreviewUrl(prev => { if (prev) URL.revokeObjectURL(prev); return newUrl; });
       setShowVariables(true);
     } catch (err: any) { setError(err.message); } finally { setIsLoading(false); }
   }, [config, variables, imageDefinitions, generateZplWithCurrentValues]);
@@ -464,7 +485,7 @@ export default function Preview() {
                 {[{ l: 'DPMM', k: 'dpmm' }, { l: 'Largura', k: 'width' }, { l: 'Altura', k: 'height' }].map(i => (
                   <div key={i.k} className="flex items-center gap-1">
                     <label className="text-xs text-gray-400">{i.l}:</label>
-                    <input type="number" value={(config as any)[i.k]} onChange={e => setConfig(p => ({ ...p, [i.k]: Number(e.target.value) }))} className="w-20 bg-gray-700 border border-gray-600 rounded text-white text-center" />
+                    <input type="number" value={config[i.k as keyof LabelConfig]} onChange={e => setConfig(p => ({ ...p, [i.k]: Number(e.target.value) }))} className="w-20 bg-gray-700 border border-gray-600 rounded text-white text-center" />
                   </div>
                 ))}
               </div>
@@ -494,7 +515,7 @@ export default function Preview() {
               </div>
             </Cards>
 
-            <Cards title="Upload Arquivo" seach={fileName}>
+            <Cards title="Upload Arquivo" search={fileName}>
               <label className={`h-full flex flex-col items-center justify-center p-3 border-2 border-dashed rounded cursor-pointer transition-colors ${isDragging ? "border-white bg-yellow-600/20" : "border-yellow-400 hover:bg-gray-800"}`}>
                 <span className="text-yellow-400 font-semibold text-sm">Carregar Arquivo</span>
                 <input ref={fileInputRef} type="file" accept=".zpl,.prn,.txt" onChange={handleFileChange} className="hidden" />

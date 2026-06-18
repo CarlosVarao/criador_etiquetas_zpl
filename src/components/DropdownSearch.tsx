@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo } from "react";
 import baseDados from "../data/baseDados.json";
+import { normalizeText } from "../utils/text";
 
 export default function DropdownSearch({
   onSelect,
@@ -10,13 +11,6 @@ export default function DropdownSearch({
   const [search, setSearch] = useState("");
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // ====== NORMALIZAR ======
-  const normalizeText = (text: string) =>
-    text
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase();
 
   // ====== ORDENAR ======
   const listaOrdenada = useMemo(() => {
@@ -86,9 +80,9 @@ export default function DropdownSearch({
 
           {/* LISTA FILTRADA */}
           <ul className="h-50 p-2 text-sm font-medium overflow-y-auto bg-gray-900 custom-scrollbar">
-            {dadosFiltrados.map((item, index) => (
+            {dadosFiltrados.map((item) => (
               <li
-                key={index}
+                key={item.value}
                 onClick={() => {
                   onSelect(item.value);
                   setOpen(false);

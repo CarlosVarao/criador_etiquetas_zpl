@@ -1,23 +1,24 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Cards from "../components/cards";
 import baseDados from "../data/baseDados.json";
 import { MdContentCopy } from "react-icons/md";
 import { FiEye, FiEyeOff } from "react-icons/fi";
+import { normalizeText } from "../utils/text";
 
 export default function DataFieldList() {
   const [copiado, setCopiado] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [campoAtivo, setCampoAtivo] = useState<number | null>(null);
   const [imagemAtiva, setImagemAtiva] = useState<string | null>(null);
-  const [openImagem, setOpenImagem] = useState(false)
+  const [openImagem, setOpenImagem] = useState(false);
   const [fade, setFade] = useState<"in" | "out" | null>(null);
 
-  // ====== NORMALIZAR ======
-  const normalizeText = (text: string) =>
-    text
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase();
+  useEffect(() => {
+    if (!openImagem) return;
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpenImagem(false); };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [openImagem]);
 
   // ====== ORDENAR ======
   const listaOrdenada = useMemo(() => {
@@ -118,7 +119,7 @@ export default function DataFieldList() {
 
       <Cards
         title="Campos de Dados Disponíveis"
-        seach={
+        search={
           <div className="bg-gray-900 border-gray-700">
             <input
               type="text"
@@ -141,7 +142,7 @@ export default function DataFieldList() {
 
             {dadosFiltrados.map((item, index) => (
               <div
-                key={index}
+                key={item.value}
                 className="relative flex justify-between items-center p-3 rounded-lg hover:bg-gray-800 transition duration-150 border-b border-gray-800 w-[360px]"
               >
                 <p className="text-[11px] uppercase font-medium text-yellow-400 max-w-55">
