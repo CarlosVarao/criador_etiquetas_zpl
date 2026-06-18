@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import Cards from "./cards";
 import { SyncLoader } from "react-spinners";
 import DropdownSearch from "./DropdownSearch";
+import { Image as ImageIcon, Barcode, Type, UploadCloud, Download } from "lucide-react";
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -245,6 +246,21 @@ const LabelOverlay: React.FC<LabelOverlayProps> = ({ variables, activeVariableId
   );
 };
 
+const TypeBadge: React.FC<{ type: Variable['type'] }> = ({ type }) => {
+  const map = {
+    image: { Icon: ImageIcon, label: 'IMAGEM' },
+    barcode: { Icon: Barcode, label: 'BARRAS' },
+    text: { Icon: Type, label: 'TEXTO' },
+  } as const;
+  const { Icon, label } = map[type];
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <Icon size={13} className="text-[#f6a821]" />
+      {label}
+    </span>
+  );
+};
+
 const VariableItem: React.FC<{
   variable: Variable; index: number; isActive: boolean; value: string;
   onFocus: () => void; onChange: (value: string) => void;
@@ -258,24 +274,28 @@ const VariableItem: React.FC<{
     onSelect(isImg || isBc ? newValue.toUpperCase() : newValue);
   };
   return (
-    <div ref={setRef} onClick={onFocus} className={`flex flex-col space-y-1 p-3 rounded-lg border cursor-pointer transition-colors ${isActive ? "border-yellow-600 bg-yellow-700/30" : "border-gray-700 bg-gray-800 hover:border-gray-600"}`}>
-      <div className="text-xs font-bold text-yellow-500 flex justify-between items-center">
-        <span>{isImg ? '🖼️ IMAGEM' : isBc ? '📊 BARRAS' : '📝 TEXTO'} {index + 1}</span>
+    <div
+      ref={setRef}
+      onClick={onFocus}
+      className={`flex flex-col space-y-2 p-3 rounded-xl border cursor-pointer transition-colors ${isActive ? "border-[#f6a821] bg-[#f6a821]/[0.12]" : "border-[#2a2f3a] bg-[#13151a] hover:border-[#3a4150]"}`}
+    >
+      <div className="text-[11px] font-bold text-[#f6a821] tracking-[0.4px] flex justify-between items-center">
+        <span className="inline-flex items-center gap-1.5"><TypeBadge type={variable.type} /> {index + 1}</span>
         <div className="flex gap-2 items-center">
           <div className="flex items-center gap-1">
-            <span className="text-[9px] text-gray-500">X:</span>
-            <input type="number" value={variable.x} onChange={e => onCoordChange('x', parseInt(e.target.value) || 0)} className="w-15 py-1 text-center bg-gray-900 border border-gray-700 rounded text-white text-[10px] outline-none" />
+            <span className="text-[9px] text-[#7b828f]">X:</span>
+            <input type="number" value={variable.x} onChange={e => onCoordChange('x', parseInt(e.target.value) || 0)} className="w-15 py-1 text-center bg-[#0e1014] border border-[#242a34] rounded text-white text-[10px] outline-none focus:border-[#f6a821]" />
           </div>
           <div className="flex items-center gap-1">
-            <span className="text-[9px] text-gray-500">Y:</span>
-            <input type="number" value={variable.y} onChange={e => onCoordChange('y', parseInt(e.target.value) || 0)} className="w-15 py-1 text-center bg-gray-900 border border-gray-700 rounded text-white text-[10px] outline-none" />
+            <span className="text-[9px] text-[#7b828f]">Y:</span>
+            <input type="number" value={variable.y} onChange={e => onCoordChange('y', parseInt(e.target.value) || 0)} className="w-15 py-1 text-center bg-[#0e1014] border border-[#242a34] rounded text-white text-[10px] outline-none focus:border-[#f6a821]" />
           </div>
         </div>
       </div>
       <div className="flex justify-between items-center gap-3">
         <div className="flex items-center gap-2 w-full">
-          {isImg && <input type="checkbox" checked={variable.isChecked} onChange={e => onCheckboxChange(e.target.checked)} onClick={e => e.stopPropagation()} className="w-5 h-5 accent-yellow-500" />}
-          <input type="text" value={value} onChange={e => onChange(isImg || isBc ? e.target.value.toUpperCase() : e.target.value)} onFocus={onFocus} onClick={e => e.stopPropagation()} className="h-10 px-2 w-full bg-gray-900 border text-[11px] border-gray-600 rounded text-white focus:border-yellow-600 outline-none" />
+          {isImg && <input type="checkbox" checked={variable.isChecked} onChange={e => onCheckboxChange(e.target.checked)} onClick={e => e.stopPropagation()} className="w-5 h-5 accent-[#f6a821]" />}
+          <input type="text" value={value} onChange={e => onChange(isImg || isBc ? e.target.value.toUpperCase() : e.target.value)} onFocus={onFocus} onClick={e => e.stopPropagation()} className="h-10 px-2.5 w-full bg-[#0e1014] border text-[11px] border-[#242a34] rounded-lg text-white focus:border-[#f6a821] outline-none" />
         </div>
         <DropdownSearch onSelect={handleDropdownSelect} />
       </div>
@@ -424,22 +444,26 @@ export default function Preview() {
   useEffect(() => { if (originalContent) debouncedRenderPreview(); }, [variables, config, originalContent, debouncedRenderPreview]);
 
   return (
-    <div className="w-full mb-12">
-      <h2 className="text-xl font-bold text-gray-200 px-2 mb-2">Editor de ZPL</h2>
+    <div className="w-full mb-6">
+      <div className="flex items-center gap-2.5 px-1 mb-3">
+        <span className="w-[3px] h-[15px] rounded-[2px] bg-[#f6a821] inline-block" />
+        <h2 className="text-[15px] font-semibold text-[#e7e9ee]">Editor de ZPL</h2>
+      </div>
+
       <div className="flex flex-col gap-8">
-        <div className="flex gap-6 space-y-6">
+        <div className="flex gap-6">
           <div className="w-full flex justify-between flex-col gap-5">
             <div
               ref={containerRef}
-              className={`min-h-[400px] flex items-center justify-center border-2 rounded-xl shadow-xl overflow-hidden relative transition-all ${isDragging ? "border-yellow-500 bg-gray-700/50 scale-[1.01]" : "border-gray-600 bg-gray-800"}`}
+              className={`min-h-[400px] flex items-center justify-center border rounded-2xl overflow-hidden relative transition-all [box-shadow:0_10px_30px_-12px_rgba(0,0,0,0.45)] ${isDragging ? "border-[#f6a821] bg-[#15181f] scale-[1.005]" : "border-[#242a34] bg-[#0e1014]"}`}
               onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
               onDragLeave={() => setIsDragging(false)}
               onDrop={e => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files?.[0]; if (file) processFile(file); }}
             >
               {isLoading ? (
-                <SyncLoader color="#f0b100" />
+                <SyncLoader color="#f6a821" />
               ) : error && !previewUrl ? (
-                <p className="text-red-400">{error}</p>
+                <p className="text-red-400 px-6 text-center text-sm">{error}</p>
               ) : previewUrl ? (
                 <div
                   className="w-full h-[700px] flex items-center justify-center relative overflow-hidden cursor-crosshair"
@@ -449,7 +473,7 @@ export default function Preview() {
                 >
                   <div
                     ref={zoomContainerRef}
-                    className="relative inline-block border border-gray-600 shadow-2xl"
+                    className="relative inline-block border border-[#242a34] shadow-2xl bg-white"
                     style={{
                       transformOrigin: 'var(--zoom-x, 50%) var(--zoom-y, 50%)',
                       transform: isHovering ? `scale(${ZOOM_LEVEL})` : 'scale(1)',
@@ -474,18 +498,19 @@ export default function Preview() {
                   </div>
                 </div>
               ) : (
-                <div onClick={() => fileInputRef.current?.click()} className="w-full h-full flex flex-col items-center justify-center cursor-pointer p-6 text-gray-500 italic text-center">
-                  <p>{isDragging ? "Solte para carregar" : "Clique ou arraste um arquivo ZPL aqui."}</p>
+                <div onClick={() => fileInputRef.current?.click()} className="w-full h-full flex flex-col items-center justify-center cursor-pointer p-6 text-[#6b7280] text-center gap-3">
+                  <UploadCloud size={30} className="text-[#3a4150]" />
+                  <p className="text-sm">{isDragging ? "Solte para carregar" : "Clique ou arraste um arquivo ZPL aqui."}</p>
                 </div>
               )}
             </div>
 
-            <Cards title="Configuração">
-              <div className="flex flex-wrap justify-around gap-4">
-                {[{ l: 'DPMM', k: 'dpmm' }, { l: 'Largura', k: 'width' }, { l: 'Altura', k: 'height' }].map(i => (
-                  <div key={i.k} className="flex items-center gap-1">
-                    <label className="text-xs text-gray-400">{i.l}:</label>
-                    <input type="number" value={config[i.k as keyof LabelConfig]} onChange={e => setConfig(p => ({ ...p, [i.k]: Number(e.target.value) }))} className="w-20 bg-gray-700 border border-gray-600 rounded text-white text-center" />
+            <Cards title="Configuração de impressão">
+              <div className="grid grid-cols-3 gap-3.5">
+                {[{ l: 'DPMM', k: 'dpmm' }, { l: 'Largura (cm)', k: 'width' }, { l: 'Altura (cm)', k: 'height' }].map(i => (
+                  <div key={i.k} className="bg-[#13151a] border border-[#242a34] rounded-xl px-3.5 py-3">
+                    <label className="text-[11px] uppercase tracking-[0.6px] text-[#7b828f] block mb-2">{i.l}</label>
+                    <input type="number" value={config[i.k as keyof LabelConfig]} onChange={e => setConfig(p => ({ ...p, [i.k]: Number(e.target.value) }))} className="w-full bg-[#0e1014] border border-[#242a34] rounded-lg text-white text-center py-1.5 text-base font-semibold outline-none focus:border-[#f6a821]" />
                   </div>
                 ))}
               </div>
@@ -493,9 +518,9 @@ export default function Preview() {
           </div>
 
           <div className="flex flex-col w-[70%] justify-between gap-6">
-            <Cards title="Variáveis">
+            <Cards title="Variáveis" search={fileName ? `${variables.length} detectadas` : ""}>
               <div className={`transition-all duration-500 overflow-hidden ${showVariables ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"}`}>
-                <div className="flex flex-col overflow-y-scroll pr-3 custom-scrollbar gap-4 max-h-[530px]">
+                <div className="flex flex-col overflow-y-scroll pr-3 custom-scrollbar gap-3 max-h-[530px]">
                   {variables.map((v, i) => (
                     <VariableItem
                       key={v.id}
@@ -515,13 +540,16 @@ export default function Preview() {
               </div>
             </Cards>
 
-            <Cards title="Upload Arquivo" search={fileName}>
-              <label className={`h-full flex flex-col items-center justify-center p-3 border-2 border-dashed rounded cursor-pointer transition-colors ${isDragging ? "border-white bg-yellow-600/20" : "border-yellow-400 hover:bg-gray-800"}`}>
-                <span className="text-yellow-400 font-semibold text-sm">Carregar Arquivo</span>
+            <Cards title="Arquivo" search={fileName}>
+              <label className={`flex flex-col items-center justify-center gap-2 p-5 border-[1.5px] border-dashed rounded-xl cursor-pointer transition-colors bg-[#13151a] ${isDragging ? "border-[#f6a821] bg-[#f6a821]/10" : "border-[#3a4150] hover:border-[#f6a821] hover:bg-[#15181f]"}`}>
+                <UploadCloud size={22} className="text-[#f6a821]" />
+                <span className="text-[#cdd3dd] font-semibold text-[13px]">Clique ou arraste um arquivo .zpl</span>
+                <span className="text-[11px] text-[#6b7280]">Substitui o conteúdo atual do editor</span>
                 <input ref={fileInputRef} type="file" accept=".zpl,.prn,.txt" onChange={handleFileChange} className="hidden" />
               </label>
-              <button onClick={handleSubmit} disabled={!originalContent} className="mt-4 w-full py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold rounded cursor-pointer text-sm">
-                Baixar Modificado
+              <button onClick={handleSubmit} disabled={!originalContent} className="mt-3 w-full py-3 bg-[#f6a821] hover:brightness-110 disabled:bg-[#2a2f3a] disabled:text-[#6b7280] text-[#15171c] font-semibold rounded-[9px] cursor-pointer text-sm flex items-center justify-center gap-2 transition">
+                <Download size={16} strokeWidth={2.2} />
+                Baixar modificado
               </button>
             </Cards>
           </div>
